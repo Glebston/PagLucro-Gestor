@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Sobrevivência - PagLucro Gestor</title>
+    <style>
+        /* CSS Brutalista e Focado em Performance / Impressão */
+        body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.5; color: #000; background-color: #fff; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1, h2, h3 { margin-top: 0; margin-bottom: 0.5rem; border-bottom: 2px solid #000; padding-bottom: 5px; }
+        p { margin-top: 0; }
+        .hidden { display: none !important; }
+        
+        /* Inputs e Botões (Alto Contraste) */
+        input { padding: 12px; margin-bottom: 15px; width: 100%; box-sizing: border-box; border: 2px solid #000; font-size: 16px; }
+        button { padding: 10px 15px; font-weight: bold; font-size: 14px; cursor: pointer; border: 2px solid #000; background: #eee; color: #000; transition: background 0.2s; }
+        button:hover { background: #ddd; }
+        button.primary { background: #000; color: #fff; border-color: #000; }
+        button.primary:hover { background: #333; }
+        button.danger { border-color: #d00; color: #d00; background: transparent; }
+        
+        /* Estrutura Visual */
+        .card { border: 2px solid #000; padding: 20px; margin-bottom: 20px; background: #fff; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .error-msg { color: #d00; font-weight: bold; margin-top: 10px; border: 1px solid #d00; padding: 10px; background: #fee; }
+        
+        /* Tabelas Limpas */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; }
+        th { background-color: #f0f0f0; font-weight: bold; }
+        
+        /* Resumo Financeiro */
+        .finance-summary { display: flex; gap: 20px; margin-bottom: 15px; font-size: 16px; font-weight: bold; padding: 10px; background: #f9f9f9; border: 1px dashed #000; }
+        .text-green { color: #006600; }
+        .text-red { color: #cc0000; }
+
+        /* A MÁGICA DO PLANO A: Regras estritas para Impressão */
+        @media print {
+            .no-print { display: none !important; }
+            body { padding: 0; font-size: 12pt; color: #000; background: transparent; }
+            .container { max-width: 100%; margin: 0; }
+            .card { border: 1px solid #000; padding: 10px; margin-bottom: 15px; page-break-inside: avoid; }
+            h1, h2, h3 { border-bottom: 1px solid #000; font-size: 16pt; }
+            th { background-color: transparent !important; border-bottom: 2px solid #000; }
+            td, th { padding: 4px; font-size: 10pt; }
+            .finance-summary { border: 1px solid #000; background: transparent; font-size: 12pt; }
+            @page { margin: 1cm; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <div id="loginSection" class="card no-print">
+            <h2>Acesso de Emergência</h2>
+            <p>Insira suas credenciais do PagLucro Gestor para acessar o Painel de Sobrevivência.</p>
+            <form id="loginForm">
+                <input type="email" id="emailInput" placeholder="E-mail" required autocomplete="email">
+                <input type="password" id="passwordInput" placeholder="Senha" required autocomplete="current-password">
+                <button type="submit" id="loginBtn" class="primary" style="width: 100%;">Entrar no Modo de Sobrevivência</button>
+                <div id="loginError" class="error-msg hidden"></div>
+            </form>
+        </div>
+
+        <div id="dashboardSection" class="hidden">
+            
+            <div class="flex-between no-print" style="margin-bottom: 20px;">
+                <h1 style="border: none; margin: 0;">Painel de Sobrevivência</h1>
+                <div style="display: flex; gap: 10px;">
+                    <button id="printBtn" class="primary">🖨️ Imprimir Lista</button>
+                    <button id="logoutBtn" class="danger">Sair</button>
+                </div>
+            </div>
+
+            <div id="loadingIndicator" class="card no-print hidden" style="border-color: #0066cc; background: #e6f2ff;">
+                <p style="margin: 0; font-weight: bold; color: #004c99;">⏳ Buscando dados seguros no servidor... Por favor, aguarde.</p>
+            </div>
+
+            <div class="card no-print" style="background-color: #fafafa;">
+                <h3>Resgate Operacional (Backup)</h3>
+                <p style="font-size: 14px; color: #555;">Gera um arquivo .json com os pedidos ativos para salvar no seu computador local.</p>
+                <button id="downloadBackupBtn">📥 Baixar Backup (.json)</button>
+            </div>
+
+            <div class="card">
+                <h2>Pedidos Críticos em Produção</h2>
+                <p class="no-print" style="font-size: 14px; color: #555;">Pedidos pendentes, ordenados por data de entrega (atrasados no topo). Peças já calculadas.</p>
+                <div id="ordersContainer">
+                    </div>
+            </div>
+
+            <div class="card">
+                <h2>Pulso Financeiro (Últimos 30 Dias)</h2>
+                <p class="no-print" style="font-size: 14px; color: #555;">Visão de caixa para o setor comercial não perder o controle.</p>
+                
+                <div id="financeSummary" class="finance-summary">
+                    </div>
+                
+                <div id="financeContainer">
+                    </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script type="module" src="./js/emergencia.js"></script>
+</body>
+</html>
