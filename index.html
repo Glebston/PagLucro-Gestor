@@ -25,47 +25,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="style.css">
-
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        
-        /* === A CORREÇÃO TÉCNICA (v5.7.57) ======= */
-        #authContainer.hidden {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            height: 0 !important;
-            overflow: hidden !important;
-            pointer-events: none !important;
-        }
-
-        #app.hidden {
-            display: none !important;
-        }
-
-        /* ====================================== */
-        
-        .z-\[60\] { z-index: 60 !important; }
-        .z-\[70\] { z-index: 70 !important; }
-        .z-\[80\] { z-index: 80 !important; }
-        .z-\[100\] { z-index: 100 !important; }
-        .z-\[200\] { z-index: 200 !important; } /* Camada Suprema para Bloqueios */
-        
-        .modal-enter { animation: modalFadeIn 0.2s ease-out forwards; }
-        @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-        .toast-enter { animation: toastSlideIn 0.3s ease-out forwards; }
-        @keyframes toastSlideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Estilo do Toggle Switch para o Admin */
-        .toggle-checkbox:checked {
-            right: 0;
-            border-color: #ef4444;
-        }
-        .toggle-checkbox:checked + .toggle-label {
-            background-color: #ef4444;
-        }
-    </style>
+    
+    <script src="https://bernardo-castilho.github.io/DragDropTouch/DragDropTouch.js"></script>
 </head>
+    
 <body class="antialiased text-gray-800 bg-slate-50">
 
     <div id="authContainer" class="flex items-center justify-center min-h-screen bg-slate-50 transition-all duration-300">
@@ -87,6 +50,16 @@
                         <input type="password" id="loginPassword" placeholder="Senha" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" required>
                     </div>
                 </div>
+
+                <div class="mt-4 flex items-start">
+                    <div class="flex items-center h-5">
+                        <input id="termsCheckbox" type="checkbox" required
+                            class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 cursor-pointer transition">
+                    </div>
+                    <label for="termsCheckbox" class="ml-2 text-sm text-gray-600 select-none cursor-pointer">
+                        Eu li e concordo com os <a href="https://paglucrobr.com/gestor-termos-e-privacidade" target="_blank" class="font-bold text-blue-600 hover:text-blue-800 hover:underline transition">Termos de Uso e Política de Privacidade</a>.
+                    </label>
+                </div>
                 
                 <button type="submit" class="w-full px-4 py-3 mt-6 font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 transition shadow-lg transform active:scale-95">
                     Entrar no Sistema
@@ -107,22 +80,38 @@
                     <h1 class="text-xl font-bold text-gray-900 hidden sm:block">PagLucro Gestor</h1>
                 </div>
                 <div class="flex items-center gap-3 sm:gap-4">
-                    <button id="adminPanelBtn" class="hidden bg-purple-600 text-white font-bold py-2 px-3 rounded-lg hover:bg-purple-700 transition flex items-center justify-center shadow-md border border-purple-500 animate-pulse" title="Painel Administrativo">
+                    <a href="admin.html" id="adminPanelBtn" class="hidden bg-purple-600 text-white font-bold py-2 px-3 rounded-lg hover:bg-purple-700 transition flex items-center justify-center shadow-md border border-purple-500 animate-pulse" title="Painel Administrativo">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                         </svg>
                         Admin
-                    </button>
+                    </a>
 
                     <button id="priceTableBtn" class="bg-gray-100 text-gray-700 font-semibold py-2 px-3 rounded-lg hover:bg-gray-200 transition flex items-center justify-center border border-gray-200" title="Tabela de Preços">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a1 1 0 011-1h5a1 1 0 01.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
                         </svg>
                     </button>
-                    <button id="addOrderBtn" class="bg-blue-600 text-white font-semibold py-2 px-3 sm:px-4 rounded-lg shadow-md hover:bg-blue-700 transition flex items-center justify-center text-sm sm:text-base">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 sm:mr-2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                        <span class="hidden sm:inline">Novo Pedido</span>
+                    
+                    <button id="navInventoryBtn" class="bg-indigo-50 text-indigo-700 font-semibold py-2 px-3 rounded-lg hover:bg-indigo-100 transition flex items-center justify-center border border-indigo-200 shadow-sm" title="Almoxarifado">
+                        📦 <span class="hidden sm:inline ml-2">Estoque</span>
                     </button>
+
+                    <div class="flex rounded-lg shadow-md relative group" id="orderSplitBtnContainer">
+                        <button id="addOrderBtn" class="bg-blue-600 text-white font-semibold py-2 px-3 sm:px-4 rounded-l-lg hover:bg-blue-700 transition flex items-center justify-center text-sm sm:text-base border-r border-blue-700 z-10">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 sm:mr-2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                            <span class="hidden sm:inline">Novo Pedido</span>
+                        </button>
+                        <button id="aiTurboDropdownBtn" class="bg-blue-600 text-white py-2 px-2 rounded-r-lg hover:bg-blue-700 transition flex items-center justify-center z-10" title="Opções Premium">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                        <div id="aiTurboMenu" class="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl z-50 hidden ring-1 ring-black ring-opacity-5 border border-purple-100 overflow-hidden transition-all">
+                            <button id="openAiTurboModalBtn" class="w-full text-left flex items-center gap-2 px-4 py-3 text-sm text-purple-700 hover:bg-purple-50 font-bold transition">
+                                <span>✨</span> Preenchimento Turbo IA
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="relative" id="userMenuContainer">
                         <button id="userMenuBtn" class="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 bg-gray-50 py-1 px-2 rounded-full border hover:bg-white transition">
                             <span id="userEmail" class="hidden md:inline max-w-[150px] truncate">Usuario</span>
@@ -190,195 +179,24 @@
                     </div>
                 </div>
             </div>
-            <div id="ordersDashboard">
-                <div id="ordersList">
-                    <div id="loadingIndicator" class="flex flex-col items-center justify-center py-20 text-gray-400">
-                        <svg class="animate-spin h-10 w-10 mb-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <p>Carregando seus pedidos...</p>
-                    </div>
+
+            <div id="mainViewContainer" class="w-full transition-opacity duration-300">
                 </div>
-            </div>
             
-            <div id="financeDashboard" class="hidden">
-                <div class="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-                    <h2 class="text-2xl font-bold text-gray-800">Visão Financeira</h2>
-                    <div class="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
-                        <div id="customPeriodContainer" class="hidden flex items-center gap-2 bg-white p-1 rounded border">
-                            <input type="date" id="startDateInput" class="p-1 border-none text-sm focus:ring-0">
-                            <span class="text-gray-400 text-xs">até</span>
-                            <input type="date" id="endDateInput" class="p-1 border-none text-sm focus:ring-0">
-                        </div>
-                        <select id="periodFilter" class="p-2 border rounded-lg bg-white shadow-sm text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                            <option value="thisMonth">Este Mês</option>
-                            <option value="lastMonth">Mês Passado</option>
-                            <option value="thisYear">Este Ano</option>
-                            <option value="custom">Período Personalizado</option>
-                        </select>
-                        <button id="copyReportBtn" class="bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-2 shadow-sm transition" title="Copiar para Excel">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-600" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M5 3a2 2 0 00-2 2v6a1 1 0 102 0V5h6a1 1 0 100-2H5z" /></svg>
-                            Copiar
-                        </button>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between h-full">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-green-600 mb-1">Faturamento Bruto</h3>
-                        <p id="faturamentoBruto" class="text-xl lg:text-2xl font-bold text-gray-800">R$ 0,00</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between h-full">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-red-600 mb-1">Despesas</h3>
-                        <p id="despesasTotais" class="text-xl lg:text-2xl font-bold text-gray-800">R$ 0,00</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between h-full ring-1 ring-blue-100">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1">Lucro Líquido</h3>
-                        <p id="lucroLiquido" class="text-xl lg:text-2xl font-bold text-blue-700">R$ 0,00</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between h-full bg-yellow-50/50">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-yellow-700 mb-1">A Receber (Pendentes)</h3>
-                        <p id="contasAReceber" class="text-xl lg:text-2xl font-bold text-yellow-800">R$ 0,00</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between h-full relative group">
-                         <button id="adjustBalanceBtn" class="absolute top-2 right-2 text-gray-300 hover:text-indigo-600 transition opacity-0 group-hover:opacity-100" title="Ajustar Saldo Inicial">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
-                        </button>
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1">Saldo Banco</h3>
-                        <p id="saldoEmConta" class="text-xl lg:text-2xl font-bold text-indigo-900">R$ 0,00</p>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between h-full">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Saldo Caixa</h3>
-                        <p id="saldoEmCaixa" class="text-xl lg:text-2xl font-bold text-gray-800">R$ 0,00</p>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                        <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 border-b pb-2">Top Despesas</h3>
-                        <div id="topExpensesByCategory" class="space-y-3">
-                            <p class="text-sm text-gray-400 italic text-center py-4">Nenhum dado no período.</p>
-                        </div>
-                    </div>
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                        <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 border-b pb-2">Top Receitas</h3>
-                        <div id="topIncomesByCategory" class="space-y-3">
-                            <p class="text-sm text-gray-400 italic text-center py-4">Nenhum dado no período.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-                    <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <h3 class="text-lg font-bold text-gray-800">Extrato de Lançamentos</h3>
-                        <div class="flex gap-2 w-full sm:w-auto">
-                            <button id="addIncomeBtn" class="flex-1 sm:flex-none bg-green-50 text-green-700 border border-green-200 font-semibold py-2 px-4 rounded-lg hover:bg-green-100 text-sm transition">+ Entrada</button>
-                            <button id="addExpenseBtn" class="flex-1 sm:flex-none bg-red-50 text-red-700 border border-red-200 font-semibold py-2 px-4 rounded-lg hover:bg-red-100 text-sm transition">- Despesa</button>
-                        </div>
-                    </div>
-                    
-                    <div class="p-4 bg-gray-50 border-b border-slate-100">
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <svg class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
-                            </span>
-                            <input type="text" id="transactionSearchInput" placeholder="Buscar lançamentos..." class="pl-10 w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                        </div>
-                    </div>
-
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-gray-50 text-gray-500 font-medium">
-                                <tr>
-                                    <th class="py-3 px-4">Data</th>
-                                    <th class="py-3 px-4">Descrição</th>
-                                    <th class="py-3 px-4">Categoria</th>
-                                    <th class="py-3 px-4">Origem</th>
-                                    <th class="py-3 px-4 text-right">Valor</th>
-                                    <th class="py-3 px-4 text-right">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="transactionsList" class="divide-y divide-slate-100"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            <div id="catalogDashboard" class="hidden">
-                <div class="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-                    
-                    <div class="flex items-center gap-3">
-                        <button id="exitCatalogBtn" class="bg-white p-2 rounded-full border border-gray-200 text-gray-500 hover:text-purple-600 hover:border-purple-400 shadow-sm transition group" title="Voltar para Pedidos">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 transform group-hover:-translate-x-1 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                            </svg>
-                        </button>
-                        <div>
-                            <h2 class="text-2xl font-bold text-gray-800">Meu Catálogo Digital</h2>
-                            <p class="text-sm text-gray-500">Gerencie sua vitrine pública</p>
-                        </div>
-                    </div>
-                    
-                    <div class="flex flex-wrap gap-3 items-center">
-    
-    <div class="flex gap-2 text-xs font-semibold bg-white p-2 rounded-lg border border-slate-200 shadow-sm items-center h-10">
-        <div class="px-2 border-r border-slate-100">
-            <span class="text-gray-400 block text-[10px] leading-tight">Itens</span>
-            <span id="catalogCountDisplay" class="text-sm text-blue-600">0/30</span>
-        </div>
-        <div class="px-2">
-            <span class="text-gray-400 block text-[10px] leading-tight">Vitrine</span>
-            <span id="activeCountDisplay" class="text-sm text-green-600">0/20</span>
-        </div>
-    </div>
-
-    <div class="hidden sm:flex items-center bg-white border border-slate-200 rounded-lg px-2 shadow-sm h-10 max-w-[220px] transition-all focus-within:ring-2 focus-within:ring-purple-100 focus-within:border-purple-300">
-        <svg class="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-        
-        <input type="text" id="storeLinkInput" readonly 
-               class="text-xs text-gray-500 border-none focus:ring-0 w-full bg-transparent truncate font-mono select-all" 
-               placeholder="Gerando link..." value="">
-        
-        <div class="w-px h-4 bg-gray-200 mx-2 flex-shrink-0"></div>
-        
-        <button id="copyLinkBtn" class="text-gray-500 hover:text-purple-600 transition p-1 rounded-md hover:bg-purple-50 flex-shrink-0" title="Copiar Link">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-        </button>
-    </div>
-
-    <a id="publicStoreLink" href="#" target="_blank" class="hidden text-gray-500 bg-white border border-slate-200 hover:text-blue-600 hover:border-blue-300 font-bold h-10 w-10 rounded-lg transition flex items-center justify-center shadow-sm" title="Ver Minha Loja">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-    </a>
-
-    <button id="addCatalogItemBtn" class="bg-purple-600 text-white font-bold h-10 px-4 rounded-lg hover:bg-purple-700 shadow-sm transition flex items-center gap-2 text-sm">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-        <span class="hidden sm:inline">Novo Produto</span>
-        <span class="sm:hidden">Novo</span>
-    </button>
-</div>
-                </div>
-
-                <div id="catalogList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    <div class="col-span-full flex flex-col items-center justify-center py-12 text-gray-400">
-                        <svg class="w-12 h-12 mb-3 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                        <p>Carregando seus produtos...</p>
-                    </div>
-                </div>
-            </div>
         </main>
 
         <div id="fabBackdrop" class="fixed inset-0 z-[85] hidden cursor-default"></div>
 
     <div id="fabMenu" class="fixed bottom-24 right-6 z-[90] flex flex-col items-end gap-3 hidden">
         
-        <div class="flex items-center gap-2 group cursor-pointer" onclick="document.getElementById('addExpenseBtn').click()">
+        <div id="fabAddExpenseBtn" class="flex items-center gap-2 group cursor-pointer">
             <span class="bg-gray-800 text-white text-xs font-medium py-1 px-3 rounded shadow-lg">Nova Despesa</span>
             <div class="bg-red-500 text-white p-3 rounded-full shadow-lg hover:scale-105 transition-transform border-2 border-white">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
             </div>
         </div>
 
-        <div class="flex items-center gap-2 group cursor-pointer" onclick="document.getElementById('addIncomeBtn').click()">
+        <div id="fabAddIncomeBtn" class="flex items-center gap-2 group cursor-pointer">
             <span class="bg-gray-800 text-white text-xs font-medium py-1 px-3 rounded shadow-lg">Nova Receita</span>
             <div class="bg-green-500 text-white p-3 rounded-full shadow-lg hover:scale-105 transition-transform border-2 border-white">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
@@ -404,127 +222,8 @@
             </svg>
         </button>
 
-        <script>
-            function toggleFab(show) {
-                const fab = document.getElementById('fabContainer');
-                const restore = document.getElementById('fabRestoreBtn');
-                if (show) {
-                    fab.classList.remove('hidden');
-                    restore.classList.add('translate-x-full'); 
-                } else {
-                    fab.classList.add('hidden');
-                    restore.classList.remove('translate-x-full');
-                }
-            }
-        </script>
-
     </div>
     
-    <div id="adminModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 backdrop-blur-sm flex items-center justify-center p-4 z-[100] hidden modal-enter">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div class="p-6 bg-gray-800 text-white flex justify-between items-center">
-                <div>
-                    <h3 class="text-2xl font-bold flex items-center gap-2">
-                        👑 SaaS Manager
-                    </h3>
-                    <p class="text-gray-400 text-sm mt-1">Gerenciamento de Assinantes e Acessos</p>
-                </div>
-                <button id="closeAdminModalBtn" class="text-gray-400 hover:text-white text-2xl hover:bg-gray-700 w-10 h-10 rounded-full flex items-center justify-center transition">&times;</button>
-            </div>
-            
-            <div class="flex-1 overflow-auto bg-gray-50 p-6">
-                <div class="flex flex-col sm:flex-row gap-4 mb-6 justify-between items-center">
-                    <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                        <div class="relative w-full sm:w-80">
-                            <input type="text" id="adminSearchInput" placeholder="Buscar empresa ou email..." class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none">
-                            <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        </div>
-                        <a href="https://console.firebase.google.com/u/0/project/_/authentication/users" target="_blank" class="bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 flex items-center gap-2 shadow-sm text-sm border border-gray-300 transition" title="1º Passo: Criar Email/Senha no Firebase">
-                            🔗 Abrir Firebase
-                        </a>
-                        <button id="btnCreateCompany" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 flex items-center gap-2 shadow-sm whitespace-nowrap text-sm transition">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-                            Nova Empresa
-                        </button>
-                    </div>
-                    <button id="adminRefreshBtn" class="bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-50 flex items-center gap-2 font-medium">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                        Atualizar
-                    </button>
-                </div>
-
-                <div class="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-gray-100 text-gray-600 text-xs uppercase font-bold tracking-wider">
-                            <tr>
-                                <th class="p-4 border-b">Empresa / Email</th>
-                                <th class="p-4 border-b">Acesso / Criação</th>
-                                <th class="p-4 border-b">Assinatura / Vencimento</th>
-                                <th class="p-4 border-b text-center">Status</th>
-                                <th class="p-4 border-b">Mensagem</th>
-                                <th class="p-4 border-b text-right">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="adminUsersList" class="divide-y divide-gray-100 text-sm">
-                            <tr>
-                                <td colspan="6" class="p-8 text-center text-gray-400 italic">Carregando usuários...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div id="adminClientModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 backdrop-blur-sm flex items-center justify-center p-4 z-[110] hidden modal-enter">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-gray-200">
-            <div class="p-6 bg-gray-50 border-b flex justify-between items-start">
-                <div>
-                    <h3 class="text-xl font-bold text-gray-800" id="detailCompanyName">Carregando...</h3>
-                    <div class="text-sm text-gray-500 mt-1 flex flex-col gap-1">
-                        <span id="detailCompanyEmail">email@exemplo.com</span>
-                        <span class="font-mono text-xs bg-gray-200 px-1 rounded w-fit select-all" id="detailCompanyId">UID...</span>
-                    </div>
-                </div>
-                <button id="closeClientDetailsBtn" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-            </div>
-
-            <div class="flex-1 overflow-auto p-6 flex flex-col md:flex-row gap-6">
-                <div class="flex-1">
-                    <h4 class="text-sm font-bold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        Histórico Financeiro
-                    </h4>
-                    <div class="bg-white border rounded-lg overflow-hidden shadow-sm">
-                        <table class="w-full text-left">
-                            <thead class="bg-gray-100 text-xs text-gray-500 uppercase font-semibold">
-                                <tr>
-                                    <th class="p-3 border-b">Data</th>
-                                    <th class="p-3 border-b">Valor</th>
-                                    <th class="p-3 border-b">Ref</th>
-                                    <th class="p-3 border-b text-right">Resp.</th>
-                                </tr>
-                            </thead>
-                            <tbody id="detailHistoryList" class="divide-y divide-gray-100 text-sm">
-                                <tr><td colspan="4" class="p-4 text-center text-gray-400 text-xs">Nenhum registro.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="w-full md:w-1/3 flex flex-col">
-                    <div class="flex justify-between items-center mb-2">
-                        <h4 class="text-sm font-bold text-gray-600 uppercase tracking-wide flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            Notas Internas
-                        </h4>
-                        <span id="notesSaveStatus" class="text-xs text-gray-400"></span>
-                    </div>
-                    <textarea id="detailInternalNotes" class="flex-1 w-full border border-yellow-200 bg-yellow-50 rounded-lg p-4 text-sm text-gray-700 focus:ring-2 focus:ring-yellow-400 outline-none resize-none shadow-inner" placeholder="Escreva observações sobre este cliente aqui... (Salva automaticamente)"></textarea>
-                </div>
-            </div>
-        </div>
-    </div>
     
     <div id="blockedModal" class="fixed inset-0 bg-red-900 z-[200] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center border-4 border-red-500">
@@ -605,137 +304,33 @@
         </div>
     </div>
 
-    <div id="orderModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden modal-enter">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-y-auto">
-            <form id="orderForm" class="p-6 sm:p-8 space-y-6">
-                <div class="flex justify-between items-center border-b pb-4">
-                    <h2 id="modalTitle" class="text-2xl font-bold text-gray-800">Novo Pedido</h2>
-                    <button type="button" id="closeOrderModalX" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+    <div id="aiTurboModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 backdrop-blur-sm flex items-center justify-center p-4 z-[110] hidden modal-enter">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-0 overflow-hidden border border-purple-200">
+            <div class="bg-gradient-to-r from-purple-600 to-indigo-600 p-5 flex justify-between items-center">
+                <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span>✨</span> Preenchimento Turbo IA
+                </h3>
+                <button id="closeAiTurboModalBtn" class="text-white hover:text-purple-200 text-2xl transition">&times;</button>
+            </div>
+            <div class="p-6">
+                <p class="text-sm text-gray-600 mb-4">Cole abaixo a mensagem enviada pelo cliente (ex: WhatsApp). A Inteligência Artificial vai identificar os modelos, tamanhos e quantidades para você.</p>
+                <textarea id="aiTurboInputText" rows="6" class="w-full border border-purple-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-purple-50 text-gray-800 resize-y shadow-inner" placeholder="Ex: Oi, quero 5 camisas Gola Redonda P, e 3 GG..."></textarea>
+                
+                <div id="aiTurboLoading" class="hidden flex flex-col items-center justify-center mt-4">
+                    <svg class="animate-spin h-6 w-6 text-purple-600 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <span class="text-sm font-semibold text-purple-700 animate-pulse">A IA está processando o texto...</span>
                 </div>
-                <input type="hidden" id="orderId">
-                <fieldset class="border border-gray-200 p-4 rounded-lg bg-gray-50/50">
-                    <legend class="text-sm font-bold text-blue-600 px-2 uppercase tracking-wide">1. Cliente & Prazo</legend>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 mt-2">
-                        <div class="lg:col-span-4">
-                             <label class="text-xs font-semibold text-gray-500 block mb-1">Nome do Cliente</label>
-                            <input type="text" id="clientName" class="p-2 border rounded-md w-full focus:ring-2 focus:ring-blue-500 outline-none" required>
-                        </div>
-                        <div class="lg:col-span-3">
-                            <label class="text-xs font-semibold text-gray-500 block mb-1">Telefone</label>
-                            <input type="text" id="clientPhone" class="p-2 border rounded-md w-full focus:ring-2 focus:ring-blue-500 outline-none" maxlength="15">
-                        </div>
-                        <div class="lg:col-span-2">
-                             <label class="text-xs font-semibold text-gray-500 block mb-1">Status</label>
-                             <select id="orderStatus" class="p-2 border rounded-md w-full bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-    <option value="Pendente">Pendente</option>
-    <option value="Alteração Solicitada">Alteração Solicitada</option> <option value="Aguardando Aprovação">Aguardando Aprovação</option> <option value="Confirmado">Confirmado</option>
-    <option value="Em Produção">Em Produção</option>
-    <option value="Finalizado">Finalizado</option>
-    <option value="Entregue">Entregue</option>
-</select>
-                        </div>
-                        <div class="lg:col-span-3 grid grid-cols-2 gap-2">
-                            <div>
-                                <label for="orderDate" class="text-xs font-semibold text-gray-500 block mb-1">Data Pedido</label>
-                                <input type="date" id="orderDate" class="p-2 border rounded-md w-full text-sm">
-                            </div>
-                            <div>
-                                <label for="deliveryDate" class="text-xs font-semibold text-gray-500 block mb-1">Data Entrega</label>
-                                <input type="date" id="deliveryDate" class="p-2 border rounded-md w-full text-sm">
-                            </div>
-                        </div>
-                    </div>
-                </fieldset>
-                
-                <fieldset class="border border-gray-200 p-4 rounded-lg bg-white">
-                    <legend class="text-sm font-bold text-blue-600 px-2 uppercase tracking-wide">2. Arquivos (Mockup)</legend>
-                    <div class="mt-2 p-4 border-2 border-dashed border-gray-300 rounded-lg hover:bg-gray-50 transition text-center">
-                        <input type="file" id="mockupFiles" class="hidden" accept="image/*" multiple onchange="document.getElementById('fileCount').innerText = this.files.length + ' arquivo(s) selecionado(s)'">
-                        <label for="mockupFiles" class="cursor-pointer flex flex-col items-center justify-center">
-                            <svg class="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                            <span class="text-sm text-blue-600 font-semibold">Clique para enviar imagens</span>
-                            <span id="fileCount" class="text-xs text-gray-500 mt-1">Nenhum arquivo selecionado</span>
-                        </label>
-                    </div>
-                    <div id="existingFilesContainer" class="flex flex-wrap gap-2 mt-3"></div>
-                </fieldset>
-
-                <fieldset class="border border-gray-200 p-4 rounded-lg bg-gray-50/50">
-                    <legend class="text-sm font-bold text-blue-600 px-2 uppercase tracking-wide">3. Peças e Tamanhos</legend>
-                    <div id="partsContainer" class="space-y-6"></div>
-                    <button type="button" id="addPartBtn" class="mt-4 w-full bg-white border-2 border-dashed border-gray-300 text-gray-600 font-semibold py-3 px-4 rounded-lg hover:border-blue-500 hover:text-blue-600 transition flex items-center justify-center gap-2">
-                        <span class="text-xl font-bold">+</span> Adicionar Nova Peça
-                    </button>
-                </fieldset>
-
-                <fieldset class="border border-gray-200 p-4 rounded-lg bg-white">
-                    <legend class="text-sm font-bold text-blue-600 px-2 uppercase tracking-wide">4. Observações</legend>
-                    <textarea id="generalObservation" class="w-full p-3 border rounded-md mt-2 focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50" rows="3" placeholder="Detalhes gerais do pedido..."></textarea>
-                </fieldset>
-                
-                <fieldset class="border border-gray-200 p-4 rounded-lg bg-blue-50/30">
-                    <legend class="text-sm font-bold text-green-600 px-2 uppercase tracking-wide">5. Fechamento Financeiro</legend>
-                    
-                    <div id="financialsContainer" class="space-y-2 mb-4 bg-white p-4 rounded-lg shadow-sm border border-gray-100"></div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 border-t border-gray-200 pt-6 mt-4">
-                        <div class="col-span-1 md:col-span-2">
-                            <label class="text-xs font-bold text-gray-500 uppercase mb-2 block">Adiantamento / Sinal</label>
-                            <div class="bg-white p-3 rounded-lg border flex flex-col gap-3">
-                                <div class="flex items-center gap-2">
-                                     <span class="text-gray-500 text-sm font-bold">R$</span>
-                                     <input type="number" step="0.01" id="downPayment" class="flex-1 p-1 border-b border-gray-300 focus:border-blue-500 outline-none bg-transparent font-semibold" placeholder="0.00">
-                                </div>
-                                <div class="flex gap-2 text-xs">
-                                    <input type="date" id="downPaymentDate" class="border rounded p-1 bg-gray-50">
-                                    <select id="downPaymentSource" class="border rounded p-1 bg-gray-50 flex-1 source-selector-dummy">
-                                        <option value="banco">Banco</option>
-                                        <option value="caixa">Caixa</option>
-                                    </select>
-                                </div>
-                                <div class="flex gap-4 mt-1">
-                                    <label class="flex items-center cursor-pointer"><input type="radio" name="downPaymentStatus" value="pago" checked class="text-green-600 focus:ring-green-500"><span class="ml-2 text-xs font-medium">Recebido</span></label>
-                                    <label class="flex items-center cursor-pointer"><input type="radio" name="downPaymentStatus" value="a_receber" class="text-orange-500 focus:ring-orange-500"><span class="ml-2 text-xs font-medium">A Receber</span></label>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="flex flex-col justify-end">
-                            <label for="discount" class="text-xs font-semibold text-gray-500 mb-1">Desconto (R$)</label>
-                            <div class="flex items-center relative">
-                                <span class="text-gray-500 absolute left-3">R$</span>
-                                <input type="number" step="0.01" id="discount" class="p-2 border rounded-md w-full pl-10 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col gap-2 justify-end">
-                            <div class="flex justify-between items-end border-b border-dashed border-gray-300 pb-1">
-                                <span class="text-sm text-gray-600">Total Bruto</span>
-                                <span id="grandTotal" class="text-lg font-bold text-gray-800">R$ 0,00</span>
-                            </div>
-                            <div class="flex justify-between items-end bg-red-50 p-2 rounded border border-red-100">
-                                <span class="text-sm font-bold text-red-700">A Pagar</span>
-                                <span id="remainingTotal" class="text-xl font-bold text-red-600">R$ 0,00</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="downPaymentSourceContainer" class="hidden">
-                         <button type="button" class="source-selector" data-source="banco"></button>
-                         <button type="button" class="source-selector" data-source="caixa"></button>
-                    </div>
-                </fieldset>
-                
-                <div class="flex flex-col sm:flex-row justify-end gap-4 mt-8 pt-4 border-t">
-                    <div id="uploadIndicator" class="flex items-center text-blue-600 font-semibold hidden animate-pulse">
-                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                        Salvando...
-                    </div>
-                    <button type="button" id="cancelBtn" class="bg-white border border-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg hover:bg-gray-50 transition">Cancelar</button>
-                    <button type="submit" id="saveBtn" class="bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 shadow-lg transform active:scale-95 transition">Salvar Pedido</button>
-                </div>
-            </form>
+            </div>
+            <div class="bg-gray-50 p-4 border-t border-gray-100 flex justify-end gap-3">
+                <button id="cancelAiTurboBtn" class="px-4 py-2 text-sm font-semibold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 transition">Cancelar</button>
+                <button id="processAiTurboBtn" class="px-5 py-2 text-sm font-bold text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition shadow-md flex items-center gap-2">
+                    Processar ✨
+                </button>
+            </div>
         </div>
     </div>
+
+    <div id="orderModalContainer"></div>
 
     <div id="viewModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden modal-enter"></div>
     <div id="infoModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-[80] hidden modal-enter">
@@ -743,6 +338,22 @@
             <div class="mb-4 text-blue-500 mx-auto w-12 h-12 flex items-center justify-center bg-blue-100 rounded-full">ℹ️</div>
             <p id="infoModalMessage" class="text-lg font-medium text-gray-800 mb-6"></p>
             <button id="infoModalCloseBtn" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 font-semibold">OK, Entendi</button>
+        </div>
+    </div>
+
+    <div id="broadcastModal" class="fixed inset-0 bg-red-900 bg-opacity-90 backdrop-blur-sm flex items-center justify-center p-4 z-[999] hidden modal-enter">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center border-4 border-red-600">
+            <div class="mx-auto w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-red-600 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                </svg>
+            </div>
+            <h2 class="text-3xl font-black text-gray-900 mb-4 uppercase tracking-tighter">Aviso Importante</h2>
+            <p id="broadcastMessageBody" class="text-gray-700 text-lg mb-8 leading-relaxed font-medium">
+                </p>
+            <button id="broadcastAcknowledgeBtn" class="w-full bg-red-600 text-white font-bold py-4 px-4 rounded-xl hover:bg-red-700 transition shadow-lg transform active:scale-95 text-lg">
+                Ciente, Entendi
+            </button>
         </div>
     </div>
     <div id="idleModal" class="fixed inset-0 bg-gray-900 bg-opacity-90 backdrop-blur-sm flex items-center justify-center p-4 z-[60] hidden modal-enter">
@@ -782,8 +393,20 @@
             
             <div class="space-y-4">
                 <div class="bg-blue-50 p-4 rounded-lg text-center">
-                    <span class="text-xs font-bold text-blue-600 uppercase tracking-wide">Valor Restante</span>
-                    <p id="settlementAmountDisplay" class="text-3xl font-bold text-blue-700 mt-1">R$ 0,00</p>
+                    <span class="text-xs font-bold text-blue-600 uppercase tracking-wide">Valor Final a Receber</span>
+                    <p id="settlementAmountDisplay" class="text-3xl font-bold text-blue-700 mt-1 transition-all duration-300">R$ 0,00</p>
+                </div>
+
+                <!-- [NOVO] Grid de Desconto e Acréscimo -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="settlementDiscount" class="text-xs font-semibold text-gray-600">Desconto (R$)</label>
+                        <input type="number" id="settlementDiscount" step="0.01" min="0" placeholder="0,00" class="p-2 border rounded-md w-full mt-1 text-green-600 font-medium focus:ring-2 focus:ring-green-500 outline-none transition-all">
+                    </div>
+                    <div>
+                        <label for="settlementSurcharge" class="text-xs font-semibold text-gray-600">Acréscimo/Juros (R$)</label>
+                        <input type="number" id="settlementSurcharge" step="0.01" min="0" placeholder="0,00" class="p-2 border rounded-md w-full mt-1 text-red-600 font-medium focus:ring-2 focus:ring-red-500 outline-none transition-all">
+                    </div>
                 </div>
 
                 <div>
@@ -830,14 +453,28 @@
                 </div>
                 <input id="transactionAmount" type="number" step="0.01" placeholder="Valor" class="w-full border p-2 rounded">
                 
-                <div id="transactionStatusContainer" class="hidden flex gap-4 mt-2">
+                <!-- [NOVO] Opção de Parcelamento / Recorrência -->
+                <div class="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="checkbox" id="isRecurringCb" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                        <span class="ml-2 text-sm font-medium text-gray-700">Lançamento Parcelado / Recorrente</span>
+                    </label>
+                    
+                    <div id="recurringDetailsContainer" class="hidden mt-3 pt-3 border-t border-slate-200">
+                        <label for="installmentsCount" class="block text-xs font-semibold text-gray-600 mb-1">Quantidade de Meses / Parcelas</label>
+                        <input type="number" id="installmentsCount" min="2" max="120" placeholder="Ex: 3" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <p class="text-xs text-gray-500 mt-1 italic">O sistema irá gerar automaticamente as parcelas futuras.</p>
+                    </div>
+                </div>
+                
+                <div id="transactionStatusContainer" class="hidden flex gap-4 mt-3">
                     <label class="flex items-center cursor-pointer">
                         <input type="radio" name="transactionStatus" id="pago" value="pago" class="text-green-600 focus:ring-green-500">
-                        <span class="ml-2 text-sm font-medium text-gray-700">Recebido (Pago)</span>
+                        <span id="labelStatusPago" class="ml-2 text-sm font-medium text-gray-700">Recebido (Pago)</span>
                     </label>
                     <label class="flex items-center cursor-pointer">
-                        <input type="radio" name="transactionStatus" id="a_receber" value="a_receber" class="text-orange-500 focus:ring-orange-500">
-                        <span class="ml-2 text-sm font-medium text-gray-700">A Receber</span>
+                        <input type="radio" name="transactionStatus" id="pendente" value="pendente" class="text-orange-500 focus:ring-orange-500">
+                        <span id="labelStatusPendente" class="ml-2 text-sm font-medium text-gray-700">A Receber</span>
                     </label>
                 </div>
                 
@@ -851,83 +488,7 @@
 
     <div id="forgotPasswordModal" class="hidden fixed inset-0 bg-gray-900/75 flex items-center justify-center z-[70]"><div class="bg-white p-6 rounded-lg w-80"><h3 class="font-bold mb-2">Resetar Senha</h3><input id="resetEmailInput" type="email" placeholder="Email" class="w-full border p-2 rounded"><div class="mt-4 flex justify-end gap-2"><button id="cancelResetBtn" class="px-4 py-2 bg-gray-200 rounded">Voltar</button><button id="sendResetEmailBtn" class="px-4 py-2 bg-blue-600 text-white rounded">Enviar</button></div></div></div>
 
-    <div id="settingsModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 backdrop-blur-sm flex items-center justify-center p-4 z-[80] hidden modal-enter">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-
-            <div class="p-5 border-b bg-gray-50 flex justify-between items-center shrink-0">
-                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                    ⚙️ Configurações
-                </h3>
-                <button id="closeSettingsModalBtn" class="text-gray-400 hover:text-gray-600 text-2xl font-light">&times;</button>
-            </div>
-
-            <div id="settingsForm" class="p-6 space-y-5 overflow-y-auto custom-scrollbar">
-
-                <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
-                    <label class="block text-xs font-bold text-indigo-800 uppercase mb-2">
-                        Logotipo da Empresa
-                    </label>
-                    <div class="flex items-center gap-4">
-                        <div class="relative w-20 h-20 bg-white border border-indigo-200 rounded-lg flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
-                            <img id="logoPreview" src="" class="w-full h-full object-contain p-1 hidden" alt="Logo">
-                            <div id="logoPlaceholder" class="text-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-indigo-200 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                            </div>
-                            <div id="uploadLoader" class="absolute inset-0 bg-white/80 flex items-center justify-center hidden">
-                                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
-                            </div>
-                        </div>
-
-                        <div class="flex-1">
-                            <input type="file" id="logoInput" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer mb-1"/>
-                            <p class="text-[10px] text-gray-500">Aparece no topo do link público.</p>
-                            <p id="uploadStatus" class="text-[10px] font-bold mt-1 h-3"></p>
-                            <input type="hidden" id="logoUrl"> 
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                    <h4 class="text-xs font-bold text-blue-700 uppercase mb-3">Dados para PIX Automático</h4>
-                    <div class="space-y-3">
-                        <div class="mb-3">
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">Chave PIX</label>
-                            <input type="text" id="pixKey" class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm font-mono" placeholder="CPF, CNPJ, Email...">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">Nome do Beneficiário</label>
-                            <input type="text" id="pixBeneficiary" class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Nome Completo">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">% Adiantamento</label>
-                        <div class="relative">
-                            <input type="number" id="entryPercent" class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm pl-2" placeholder="50">
-                            <span class="absolute right-3 top-2 text-gray-400 text-sm">%</span>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">WhatsApp</label>
-                        <input type="tel" id="whatsapp" class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm" placeholder="DDD + Número">
-                    </div>
-                </div>
-
-            </div>
-
-            <div class="p-5 border-t bg-gray-50 flex justify-end gap-3 shrink-0">
-                <button type="button" id="cancelSettingsBtn" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">Cancelar</button>
-                <button type="submit" id="saveSettingsBtn" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm text-sm font-bold flex items-center gap-2">
-                    Salvar Alterações
-                </button>
-            </div>
-
-        </div>
-    </div>
+    <div id="settingsModalContainer"></div>
     
     <div id="cookieBanner" class="hidden fixed bottom-0 w-full bg-gray-900 text-white p-4 flex justify-between items-center z-50">
     <p class="text-sm">
@@ -938,121 +499,12 @@ Privacidade</a>.
     <button id="cookieAcceptBtn" class="bg-blue-600 px-4 py-1 rounded text-sm hover:bg-blue-700 transition">OK</button>
 </div>
 
-    <template id="partTemplate"><div class="part-item border p-4 rounded-md bg-gray-50 relative space-y-3 mb-4"><button type="button" class="remove-part-btn absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow hover:bg-red-600">&times;</button><div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3"><div class="relative col-span-1 md:col-span-2 flex items-center"><input type="text" placeholder="Peça (ex: Camisa)" class="p-2 border rounded-md w-full part-type focus:ring-2 focus:ring-blue-500 outline-none" list="part-type-list"><button type="button" class="manage-options-btn p-1 absolute right-1 text-gray-400 hover:text-gray-600" data-type="partTypes">⚙️</button></div><div class="relative flex items-center"><input type="text" placeholder="Material" class="p-2 border rounded-md w-full part-material focus:ring-2 focus:ring-blue-500 outline-none" list="part-material-list"><button type="button" class="manage-options-btn p-1 absolute right-1 text-gray-400 hover:text-gray-600" data-type="materialTypes">⚙️</button></div><input type="text" placeholder="Cor" class="p-2 border rounded-md w-full part-color-main focus:ring-2 focus:ring-blue-500 outline-none"></div><div class="flex items-center space-x-2 pt-2 border-t mt-2"><span class="text-xs font-semibold text-gray-500 uppercase">Modo:</span><button type="button" class="part-type-selector text-sm px-2 py-1 rounded" data-type="comum">Simples</button><button type="button" class="part-type-selector text-sm px-2 py-1 rounded" data-type="detalhado">Grade Detalhada</button></div><div class="part-content-container mt-2"></div></div></template>
-    <template id="comumPartContentTemplate"><button type="button" class="toggle-sizes-btn mt-2 text-blue-600 text-sm font-semibold hover:underline">+ Mostrar Grade Padrão</button><div class="sizes-grid hidden mt-3 grid grid-cols-3 sm:grid-cols-6 gap-2"></div><div class="border-t mt-4 pt-3"><div class="specific-sizes-list space-y-2"></div><button type="button" class="add-specific-size-btn mt-2 bg-gray-100 text-gray-700 text-xs font-bold uppercase py-2 px-3 rounded hover:bg-gray-200">+ Tamanho Personalizado</button></div></template>
-    <template id="specificSizeRowTemplate"><div class="specific-size-row grid grid-cols-12 gap-2 items-center"><div class="col-span-3"><input type="text" placeholder="L (cm)" class="p-1 border rounded w-full text-xs item-spec-width"></div><div class="col-span-3"><input type="text" placeholder="A (cm)" class="p-1 border rounded w-full text-xs item-spec-height"></div><div class="col-span-5"><input type="text" placeholder="Obs" class="p-1 border rounded w-full text-xs item-spec-obs"></div><div class="col-span-1 flex justify-center"><button type="button" class="remove-specific-row-btn text-red-400 hover:text-red-600 font-bold">&times;</button></div></div></template>
-    <template id="detalhadoPartContentTemplate"><div class="detailed-sizes-grid-container p-3 border border-gray-200 rounded-lg bg-white mb-4"><h4 class="font-bold text-xs text-gray-500 uppercase mb-2">1. Quantidade por Tamanho</h4></div><button type="button" class="generate-detailed-lines-btn mt-2 w-full bg-indigo-50 text-indigo-700 border border-indigo-100 font-semibold py-2 px-4 rounded-lg hover:bg-indigo-100 transition flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" /></svg> 2. Gerar Lista de Nomes</button><div class="detailed-list-wrapper hidden mt-4 border-t pt-4"><div class="flex justify-between items-center mb-2"><h4 class="font-bold text-xs text-gray-500 uppercase">3. Nomes & Números</h4><button type="button" class="add-manual-detailed-row-btn text-xs bg-gray-100 px-2 py-1 rounded hover:bg-gray-200">+ Linha Manual</button></div><div class="detailed-items-list space-y-2 mt-3 bg-gray-50 p-2 rounded border"></div></div></template>
-    <template id="financialRowTemplate"><div class="financial-item grid grid-cols-12 gap-2 items-center border-b pb-2 last:border-0"><div class="col-span-4 font-medium text-sm financial-part-name leading-tight"><span>Item</span><span class="block text-xs font-normal text-gray-400 price-group-label"></span></div><div class="col-span-2 text-center"><input type="number" class="p-1 border rounded w-full bg-gray-50 text-center text-sm financial-quantity" readonly></div><div class="col-span-3"><div class="flex items-center relative"><span class="text-gray-400 absolute left-1 text-xs">R$</span><input type="number" step="0.01" class="p-1 border rounded w-full pl-5 text-sm financial-price"></div></div><div class="col-span-3 text-right"><p class="font-bold text-sm text-gray-800 financial-subtotal">R$ 0,00</p></div></div></template>
-
     <datalist id="part-type-list"></datalist>
     <datalist id="part-material-list"></datalist>
 
-    <script src="js/main.js?v=6.2.0" type="module"></script>
+    <script src="js/main.js?v=6.3.0" type="module"></script>
   
-    <script>
-    // --- CONFIGURAÇÃO DE AVISOS DE ATUALIZAÇÃO ---
-    // Mude este código sempre que quiser notificar os usuários
-    const VERSAO_ATUAL = "1.0.1"; // Ex: Mude para "1.0.1" na próxima vez
-    
-    const MENSAGEM_ATUALIZACAO = `
-        <strong>⚠️ Atualização Importante (v${VERSAO_ATUAL})</strong><br><br>
-        Realizamos melhorias e seu sistema será atualizado em breve.<br>
-        Recomendamos fortemente que você faça um <strong>Backup Manual</strong> 
-        dos seus dados hoje para garantir a integridade das informações.<br><br>
-        Obrigado por usar o PagLucro Gestor!
-    `;
-    // ---------------------------------------------
+  <div id="catalogModalContainer"></div>
 
-    document.addEventListener("DOMContentLoaded", () => {
-        const ultimaVersaoVista = localStorage.getItem("versao_aviso_lida");
-        
-        // Se a versão mudou, mostra o aviso
-        if (ultimaVersaoVista !== VERSAO_ATUAL) {
-            const modal = document.getElementById('infoModal');
-            const msgElement = document.getElementById('infoModalMessage');
-            const btn = document.getElementById('infoModalCloseBtn');
-
-            if (modal && msgElement && btn) {
-                // Configura a mensagem (aceita HTML para negrito/quebra de linha)
-                msgElement.innerHTML = MENSAGEM_ATUALIZACAO;
-                
-                // Mostra o modal
-                modal.classList.remove('hidden');
-
-                // Quando clicar em OK, salva que já leu
-                btn.onclick = function() {
-                    localStorage.setItem("versao_aviso_lida", VERSAO_ATUAL);
-                    modal.classList.add('hidden');
-                };
-            }
-        }
-    });
-</script>
-  <div id="catalogModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 backdrop-blur-sm flex items-center justify-center p-4 z-[80] hidden modal-enter">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
-            <div class="p-5 border-b bg-gray-50 flex justify-between items-center shrink-0">
-                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">📦 Detalhes do Produto</h3>
-                <button id="closeCatalogModalBtn" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-            </div>
-            
-            <form id="catalogForm" class="p-6 space-y-5 overflow-y-auto custom-scrollbar">
-                <input type="hidden" id="catalogItemId">
-
-                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center relative hover:bg-gray-50 transition group cursor-pointer" onclick="document.getElementById('catalogImageInput').click()">
-                    <input type="file" id="catalogImageInput" accept="image/*" class="hidden">
-                    <img id="catalogImagePreview" class="h-48 w-full object-contain mx-auto hidden rounded">
-                    
-                    <div id="catalogImagePlaceholder">
-                        <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                        </div>
-                        <p class="text-sm font-medium text-gray-600">Clique para adicionar foto</p>
-                        <p class="text-xs text-gray-400">Recomendado: Formato quadrado ou retrato</p>
-                    </div>
-
-                    <div id="catalogUploadLoader" class="absolute inset-0 bg-white/90 flex flex-col items-center justify-center hidden z-10">
-                        <svg class="animate-spin h-8 w-8 text-blue-600 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                        <span class="text-xs font-bold text-blue-600">Enviando para ImgBB...</span>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Título do Modelo</label>
-                    <input type="text" id="catalogTitle" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition" placeholder="Ex: Camisa Social Slim" required>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Categoria</label>
-                        <input type="text" id="catalogCategory" list="categoryOptions" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition" placeholder="Ex: Escolar">
-                        <datalist id="categoryOptions">
-                            <option value="Escolar">
-                            <option value="Esportivo">
-                            <option value="Comercial">
-                            <option value="Carnaval">
-                            <option value="Universitário">
-                        </datalist>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Preço (Texto Livre)</label>
-                        <input type="text" id="catalogPrice" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition" placeholder="Ex: A partir de R$ 45,00">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição Comercial</label>
-                    <textarea id="catalogDescription" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none resize-none transition" placeholder="Ex: Tecido Dry-Fit, proteção UV 50+, ideal para prática de esportes..."></textarea>
-                </div>
-
-            </form>
-
-            <div class="p-5 border-t bg-gray-50 flex justify-end gap-3 shrink-0">
-                <button type="button" id="cancelCatalogBtn" class="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition">Cancelar</button>
-                <button type="button" id="saveCatalogBtn" class="px-6 py-2.5 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-700 shadow-md transform active:scale-95 transition">Salvar Produto</button>
-            </div>
-        </div>
-    </div>  
 </body>
 </html>
-
-
