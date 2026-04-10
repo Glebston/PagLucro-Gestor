@@ -138,31 +138,49 @@ const applyBranding = () => {
     DOM.brandingHeader.innerHTML = brandingHtml;
 };
 
+// --- INÍCIO: MOTOR DE CARREGAMENTO BLINDADO ---
 const loadOrder = async () => {
     try {
         const params = new URLSearchParams(window.location.search);
         const orderId = params.get('id');
+        const companyId = params.get('cid'); // [NOVO] Lê a empresa da URL
 
         if (!orderId) throw new Error("ID não fornecido");
 
-        const q = query(collectionGroup(db, 'orders'), where('id', '==', orderId));
-        const querySnapshot = await getDocs(q);
+        if (companyId) {
+            // [ROTA BLINDADA - DIRETA] Não precisa de permissão "list", apenas "get"
+            const docRef = doc(db, `companies/${companyId}/orders/${orderId}`);
+            const docSnap = await getDoc(docRef);
 
-        if (querySnapshot.empty) {
-            DOM.loading.classList.add('hidden');
-            DOM.error.classList.remove('hidden');
-            DOM.headerStatus.innerText = "Não Encontrado";
-            DOM.headerStatus.className = "text-xs font-bold uppercase px-2 py-1 rounded bg-red-100 text-red-600";
-            return;
+            if (!docSnap.exists()) {
+                throw new Error("Pedido não encontrado");
+            }
+            
+            currentOrderDoc = docRef;
+            currentOrderData = docSnap.data();
+        } else {
+            // [ROTA LEGADA - BUSCA GLOBAL] (Mantida para links antigos)
+            const q = query(collectionGroup(db, 'orders'), where('id', '==', orderId));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+                throw new Error("Pedido não encontrado na busca global");
+            }
+
+            const docRef = querySnapshot.docs[0];
+            currentOrderDoc = docRef.ref;
+            currentOrderData = docRef.data();
+        }
+        
+        // [CIRURGIA DE BLINDAGEM] Garante que pedidos antigos tenham um status válido
+        if (!currentOrderData.orderStatus) {
+            currentOrderData.orderStatus = 'Pendente';
         }
 
-        const docRef = querySnapshot.docs[0];
-        currentOrderDoc = docRef.ref;
-        currentOrderData = docRef.data();
-
-        const companyId = docRef.ref.parent.parent.id;
+        // Pega o ID da empresa a partir do caminho do documento para carregar configs
+        const resolvedCompanyId = currentOrderDoc.parent.parent.id;
         
-        await loadCompanySettings(companyId);
+        await loadCompanySettings(resolvedCompanyId);
         applyBranding();
         renderOrder(currentOrderData);
 
@@ -170,9 +188,10 @@ const loadOrder = async () => {
         console.error("Erro ao carregar:", error);
         DOM.loading.classList.add('hidden');
         DOM.error.classList.remove('hidden');
-        DOM.error.querySelector('p').textContent = "Erro de conexão ou link inválido.";
+        DOM.error.querySelector('p').textContent = "O link pode estar incorreto, expirado ou você não tem permissão de acesso.";
     }
 };
+// --- FIM: MOTOR DE CARREGAMENTO BLINDADO ---
 
 const renderOrder = (order) => {
     DOM.clientName.textContent = order.clientName;
@@ -191,8 +210,12 @@ const renderOrder = (order) => {
     DOM.headerStatus.className = `text-xs font-bold uppercase px-2 py-1 rounded ${statusConfig.color}`;
     DOM.headerStatus.textContent = statusConfig.label;
 
+    // --- INÍCIO: CONTROLE HÍBRIDO DA GALERIA GLOBAL ---
+    const globalSection = document.getElementById('globalMockupSection');
     DOM.mockupGallery.innerHTML = '';
+    
     if (order.mockupUrls && order.mockupUrls.length > 0) {
+        if (globalSection) globalSection.classList.remove('hidden'); // Mostra a caixa
         order.mockupUrls.forEach(url => {
             const imgContainer = document.createElement('div');
             imgContainer.className = "relative group rounded-lg overflow-hidden shadow-sm border border-gray-100";
@@ -207,13 +230,31 @@ const renderOrder = (order) => {
             DOM.mockupGallery.appendChild(imgContainer);
         });
     } else {
-        DOM.mockupGallery.innerHTML = '<p class="text-center text-gray-400 text-sm py-4">Nenhuma imagem anexada.</p>';
+        if (globalSection) globalSection.classList.add('hidden'); // Esconde a caixa inteira
     }
+    // --- FIM: CONTROLE HÍBRIDO ---
 
     DOM.itemsTable.innerHTML = '';
     (order.parts || []).forEach(p => {
-        let detailsHtml = `<span class="font-bold text-gray-700">${p.type}</span>`;
+        // --- INÍCIO: ZONA DO MOCKUP INDIVIDUAL NO LINK DO CLIENTE ---
+        let mockupIndividualHtml = '';
+        if (p.mockupPeca) {
+            mockupIndividualHtml = `
+                <div class="mt-2 mb-2">
+                    <a href="${p.mockupPeca}" target="_blank" class="inline-block relative group rounded border border-gray-200 shadow-sm overflow-hidden bg-white">
+                        <img src="${p.mockupPeca}" class="w-24 h-24 object-cover object-top group-hover:opacity-90 transition-opacity" alt="Arte da Peça">
+                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                            <span class="opacity-0 group-hover:opacity-100 bg-white/90 text-gray-700 text-[10px] px-2 py-0.5 rounded-full shadow font-bold"><i class="fa-solid fa-expand"></i> Ampliar</span>
+                        </div>
+                    </a>
+                </div>
+            `;
+        }
+        // --- FIM: ZONA DO MOCKUP INDIVIDUAL ---
+
+        let detailsHtml = `<span class="font-bold text-gray-700 text-base">${p.type}</span>`;
         detailsHtml += `<div class="text-xs text-gray-500 mt-0.5">${p.material} | ${p.colorMain}</div>`;
+        detailsHtml += mockupIndividualHtml; // Injeta a arte logo abaixo do nome/tecido
         
         if (p.partInputType === 'comum') {
             if (p.sizes) {
