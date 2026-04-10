@@ -1,20 +1,15 @@
-
 // js/listeners/financeListeners.js
 // ===========================================================
-// MÓDULO FINANCE LISTENERS (v5.22.5 - FAB INTEGRATION)
+// MÓDULO FINANCE LISTENERS (SPA SEGURO)
 // ==========================================================
 
-/**
- * Lida com a lógica de preenchimento do modal para editar uma transação.
- * @param {object} UI - O módulo UI (injetado)
- * @param {string} id - O ID da transação.
- * @param {Function} getTransactions - A função getAllTransactions.
- */
+// Importa as novas funções geradoras de relatórios em PDF
+import { generateInadimplenciaPdf, generateContasAPagarPdf } from '../services/pdfService.js';
+
 function handleEditTransaction(UI, id, getTransactions) {
     const transaction = getTransactions().find(t => t.id === id);
     if (!transaction) return;
     
-    // --- BLINDAGEM DE INTEGRIDADE ---
     if (transaction.orderId) {
         UI.showInfoModal("🔒 Esta transação está vinculada a um Pedido.\n\nPara garantir a integridade financeira, edite-a através do botão 'Editar' no Painel de Pedidos.");
         return;
@@ -25,188 +20,326 @@ function handleEditTransaction(UI, id, getTransactions) {
     UI.DOM.transactionDescription.value = transaction.description;
     UI.DOM.transactionAmount.value = transaction.amount; 
     UI.DOM.transactionType.value = transaction.type; 
-    UI.DOM.transactionCategory.value = transaction.category || '';
+   UI.DOM.transactionCategory.value = transaction.category || '';
+    
+    // [NOVO] Oculta a opção de parcelamento na edição (segurança contra duplicação)
+    const recurringBlock = document.getElementById('isRecurringCb')?.closest('div.mt-2');
+    if (recurringBlock) recurringBlock.classList.add('hidden');
     
     UI.updateSourceSelectionUI(UI.DOM.transactionSourceContainer, transaction.source || 'banco');
     
     const isIncome = transaction.type === 'income';
-    UI.DOM.transactionStatusContainer.classList.toggle('hidden', !isIncome);
-    if (isIncome) {
-        (transaction.status === 'a_receber' ? UI.DOM.a_receber : UI.DOM.pago).checked = true;
-    }
+    
+    // Mostra o container para ambos (Receita e Despesa)
+    UI.DOM.transactionStatusContainer.classList.remove('hidden');
+    
+    // Altera os textos dinamicamente baseado no tipo
+    document.getElementById('labelStatusPago').textContent = isIncome ? 'Recebido (Pago)' : 'Pago';
+    document.getElementById('labelStatusPendente').textContent = isIncome ? 'A Receber' : 'A Pagar';
+    
+    // Se a transação estiver pendente (agora usamos 'pendente' ou o legado 'a_receber')
+    const isPending = transaction.status === 'pendente' || transaction.status === 'a_receber' || transaction.status === 'a_pagar';
+    (isPending ? document.getElementById('pendente') : UI.DOM.pago).checked = true;
     
     UI.DOM.transactionModalTitle.textContent = isIncome ? 'Editar Entrada' : 'Editar Despesa';
-    
     UI.showTransactionModal();
 }
 
-/**
- * Inicializa a lógica do Botão de Ação Flutuante (FAB).
- * Simula cliques nos botões originais para evitar duplicação de regra de negócio.
- */
 function initializeFabListeners(UI) {
-    // Verifica se os elementos existem para evitar erros em páginas que não tenham o FAB
     if (!UI.DOM.fabToggleBtn || !UI.DOM.fabActions) return;
 
-    // 1. Abrir/Fechar Menu
     UI.DOM.fabToggleBtn.addEventListener('click', (e) => {
-        e.stopPropagation(); // Evita fechar imediatamente ao clicar
+        e.stopPropagation(); 
         const isExpanded = UI.DOM.fabToggleBtn.getAttribute('aria-expanded') === 'true';
-        
         if (isExpanded) {
             UI.DOM.fabActions.classList.add('hidden');
             UI.DOM.fabToggleBtn.setAttribute('aria-expanded', 'false');
-            UI.DOM.fabToggleBtn.classList.remove('rotate-45'); // Remove rotação do ícone
+            UI.DOM.fabToggleBtn.classList.remove('rotate-45'); 
         } else {
             UI.DOM.fabActions.classList.remove('hidden');
             UI.DOM.fabToggleBtn.setAttribute('aria-expanded', 'true');
-            UI.DOM.fabToggleBtn.classList.add('rotate-45'); // Adiciona rotação para virar um "X"
+            UI.DOM.fabToggleBtn.classList.add('rotate-45'); 
         }
     });
 
-    // 2. Fechar ao clicar fora
     document.addEventListener('click', (e) => {
-        if (!UI.DOM.fabContainer.contains(e.target)) {
+        if (UI.DOM.fabContainer && !UI.DOM.fabContainer.contains(e.target)) {
             UI.DOM.fabActions.classList.add('hidden');
             UI.DOM.fabToggleBtn.setAttribute('aria-expanded', 'false');
             UI.DOM.fabToggleBtn.classList.remove('rotate-45');
         }
     });
-
-    // 3. Ação: Nova Receita (Simula clique no botão original)
-    if (UI.DOM.fabAddIncomeBtn) {
-        UI.DOM.fabAddIncomeBtn.addEventListener('click', () => {
-            UI.DOM.fabActions.classList.add('hidden'); // Fecha o menu
-            UI.DOM.fabToggleBtn.classList.remove('rotate-45');
-            UI.DOM.addIncomeBtn.click(); // Dispara a lógica existente
-        });
-    }
-
-    // 4. Ação: Nova Despesa (Simula clique no botão original)
-    if (UI.DOM.fabAddExpenseBtn) {
-        UI.DOM.fabAddExpenseBtn.addEventListener('click', () => {
-            UI.DOM.fabActions.classList.add('hidden'); // Fecha o menu
-            UI.DOM.fabToggleBtn.classList.remove('rotate-45');
-            UI.DOM.addExpenseBtn.click(); // Dispara a lógica existente
-        });
-    }
 }
 
-/**
- * Inicializa todos os event listeners relacionados ao Dashboard Financeiro.
- * @param {object} UI - O módulo UI (injetado)
- * @param {object} deps - Dependências injetadas
- */
 export function initializeFinanceListeners(UI, deps) {
+    // [CORREÇÃO]: Injetando 'userCompanyName' para o PDF puxar o nome real da estamparia
+    const { services, getConfig, setConfig, userCompanyName } = deps;
 
-    const { services, getConfig, setConfig } = deps;
-
-    // Inicializa o FAB (Novo v5.22.4)
     initializeFabListeners(UI);
 
-    // --- Botões "Nova Entrada" / "Nova Despesa" ---
-    UI.DOM.addIncomeBtn.addEventListener('click', () => { 
-        UI.DOM.transactionForm.reset(); 
-        UI.DOM.transactionId.value = ''; 
-        UI.DOM.transactionType.value = 'income'; 
-        UI.DOM.transactionModalTitle.textContent = 'Nova Entrada'; 
-        UI.DOM.transactionDate.value = new Date().toISOString().split('T')[0]; 
-        UI.DOM.transactionStatusContainer.classList.remove('hidden'); 
-        UI.DOM.pago.checked = true; 
-        UI.updateSourceSelectionUI(UI.DOM.transactionSourceContainer, 'banco'); 
+    // --- DELEGAÇÃO GLOBAL DE CLIQUES ---
+    document.addEventListener('click', async (e) => {
         
-        UI.showTransactionModal();
-    });
-
-    UI.DOM.addExpenseBtn.addEventListener('click', () => { 
-        UI.DOM.transactionForm.reset(); 
-        UI.DOM.transactionId.value = ''; 
-        UI.DOM.transactionType.value = 'expense'; 
-        UI.DOM.transactionModalTitle.textContent = 'Nova Despesa'; 
-        UI.DOM.transactionDate.value = new Date().toISOString().split('T')[0]; 
-        UI.DOM.transactionStatusContainer.classList.add('hidden'); 
-        UI.updateSourceSelectionUI(UI.DOM.transactionSourceContainer, 'banco'); 
+        // [CORREÇÃO BUG 2]: Capturamos a Receita/Despesa ANTES da restrição de <button>
+        if (e.target.closest('#addIncomeBtn') || e.target.closest('#fabAddIncomeBtn')) {
+            e.preventDefault();
+            
+            // Oculta visualmente o menu FAB se ele estiver aberto
+            const fabMenu = document.getElementById('fabMenu');
+            if (fabMenu && !fabMenu.classList.contains('hidden')) {
+                document.getElementById('fabMainBtn').click(); // Reaproveita a animação nativa
+            }
+            
+            UI.DOM.transactionForm.reset(); 
+            UI.DOM.transactionId.value = ''; 
+            UI.DOM.transactionType.value = 'income'; 
+            UI.DOM.transactionModalTitle.textContent = 'Nova Entrada'; 
+            UI.DOM.transactionDate.value = new Date().toISOString().split('T')[0]; 
+            UI.DOM.transactionStatusContainer.classList.remove('hidden'); 
+            // [NOVO] Limpa a interface de parcelamento
+            const recurringBlock = document.getElementById('isRecurringCb')?.closest('div.mt-2');
+            if (recurringBlock) recurringBlock.classList.remove('hidden');
+            if (document.getElementById('recurringDetailsContainer')) document.getElementById('recurringDetailsContainer').classList.add('hidden');
+            document.getElementById('labelStatusPago').textContent = 'Recebido (Pago)';
+            document.getElementById('labelStatusPendente').textContent = 'A Receber';
+            UI.DOM.pago.checked = true; 
+            UI.updateSourceSelectionUI(UI.DOM.transactionSourceContainer, 'banco'); 
+            UI.showTransactionModal();
+            return; // Encerra a execução aqui
+        } 
         
-        UI.showTransactionModal();
-    });
+        if (e.target.closest('#addExpenseBtn') || e.target.closest('#fabAddExpenseBtn')) {
+            e.preventDefault();
+            
+            // Oculta visualmente o menu FAB se ele estiver aberto
+            const fabMenu = document.getElementById('fabMenu');
+            if (fabMenu && !fabMenu.classList.contains('hidden')) {
+                document.getElementById('fabMainBtn').click(); // Reaproveita a animação nativa
+            }
+            
+            UI.DOM.transactionForm.reset(); 
+            UI.DOM.transactionId.value = ''; 
+            UI.DOM.transactionType.value = 'expense'; 
+            UI.DOM.transactionModalTitle.textContent = 'Nova Despesa'; 
+            UI.DOM.transactionDate.value = new Date().toISOString().split('T')[0]; 
+            UI.DOM.transactionStatusContainer.classList.remove('hidden'); // DESBLOQUEADO
+            // [NOVO] Limpa a interface de parcelamento
+            const recurringBlock = document.getElementById('isRecurringCb')?.closest('div.mt-2');
+            if (recurringBlock) recurringBlock.classList.remove('hidden');
+            if (document.getElementById('recurringDetailsContainer')) document.getElementById('recurringDetailsContainer').classList.add('hidden');
+            document.getElementById('labelStatusPago').textContent = 'Pago';
+            document.getElementById('labelStatusPendente').textContent = 'A Pagar';
+            UI.DOM.pago.checked = true; // Por padrão já vem como Pago, mas agora o usuário pode mudar
+            UI.updateSourceSelectionUI(UI.DOM.transactionSourceContainer, 'banco'); 
+            UI.showTransactionModal();
+            return; // Encerra a execução aqui
+        }
 
-    // --- Formulário de Transação (Modal) ---
-    UI.DOM.transactionForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const selectedSourceEl = UI.DOM.transactionSourceContainer.querySelector('.source-selector.active');
-        if (!selectedSourceEl) {
-            UI.showInfoModal("Por favor, selecione a Origem (Banco ou Caixa).");
+        // --- Para os demais itens (Ajuste de Saldo, Edição), mantemos a restrição de <button>
+        const targetBtn = e.target.closest('button');
+        if (!targetBtn) return;
+        
+        // ==========================================================
+        // GATILHOS DE RELATÓRIOS PDF
+        // ==========================================================
+        if (targetBtn.id === 'printObrigacoesBtn') {
+            e.preventDefault();
+            const allTransactions = services.getAllTransactions();
+            const companyName = userCompanyName ? userCompanyName() : (getConfig().companyName || 'Empresa');
+            generateContasAPagarPdf(allTransactions, companyName, UI.showInfoModal);
             return;
         }
-        const data = {
-            date: UI.DOM.transactionDate.value,
-            description: UI.DOM.transactionDescription.value,
-            amount: parseFloat(UI.DOM.transactionAmount.value),
-            type: UI.DOM.transactionType.value,
-            category: UI.DOM.transactionCategory.value.trim(),
-            source: selectedSourceEl.dataset.source,
-            status: UI.DOM.transactionType.value === 'income' 
-                ? (UI.DOM.a_receber.checked ? 'a_receber' : 'pago') 
-                : 'pago'
-        };
-        if (!data.date || !data.description || isNaN(data.amount) || data.amount <= 0) {
-            UI.showInfoModal("Por favor, preencha todos os campos com valores válidos.");
+
+        if (targetBtn.id === 'printInadimplenciaBtn') {
+            e.preventDefault();
+            const allTransactions = services.getAllTransactions();
+            const allOrders = services.getAllOrders ? services.getAllOrders() : [];
+            const companyName = userCompanyName ? userCompanyName() : (getConfig().companyName || 'Empresa');
+            generateInadimplenciaPdf(allTransactions, allOrders, companyName, UI.showInfoModal);
             return;
         }
-        try {
-            const transactionId = UI.DOM.transactionId.value;
-            
-            await services.saveTransaction(data, transactionId);
-            
-            UI.hideTransactionModal();
-
-        } catch (error) {
-            console.error("Erro ao salvar transação:", error);
-            UI.showInfoModal("Não foi possível salvar o lançamento. Verifique sua conexão e tente novamente.");
+        
+        // AJUSTE DE SALDO
+        if (targetBtn.id === 'adjustBalanceBtn') {
+            const currentBalance = getConfig().initialBalance || 0;
+            UI.DOM.initialBalanceInput.value = currentBalance.toFixed(2);
+            UI.DOM.initialBalanceModal.classList.remove('hidden');
+            setTimeout(() => UI.DOM.initialBalanceInput.focus(), 50);
         }
-    });
-
-    UI.DOM.cancelTransactionBtn.addEventListener('click', () => {
-        UI.hideTransactionModal();
-    });
-
-    // --- Lista de Transações (Edição, Exclusão, Marcar como Pago) ---
-    UI.DOM.transactionsList.addEventListener('click', (e) => {
-        const btn = e.target.closest('button');
-        if (!btn || !btn.dataset.id) return;
         
-        const id = btn.dataset.id;
-        const transaction = services.getAllTransactions().find(t => t.id === id);
+        // CANCELAR AJUSTE DE SALDO
+        else if (targetBtn.id === 'cancelBalanceBtn') {
+            UI.DOM.initialBalanceModal.classList.add('hidden');
+        }
 
-        if (btn.classList.contains('edit-transaction-btn')) {
-            handleEditTransaction(UI, id, services.getAllTransactions);
-        
-        } else if (btn.classList.contains('delete-transaction-btn')) {
-            if (transaction && transaction.orderId) {
-                UI.showInfoModal("🔒 Esta transação está vinculada a um Pedido.\n\nPara excluir este pagamento, vá ao Painel de Pedidos, edite o pedido e remova o pagamento da lista.");
+        // SALVAR AJUSTE DE SALDO
+        else if (targetBtn.id === 'saveBalanceBtn') {
+            const btn = UI.DOM.saveBalanceBtn;
+            const originalText = btn.textContent; 
+            const inputValue = UI.DOM.initialBalanceInput.value.replace(',', '.');
+            const newBalance = parseFloat(inputValue);
+
+            if (isNaN(newBalance)) {
+                UI.showInfoModal("Por favor, insira um valor numérico válido.");
                 return;
             }
 
-            UI.showConfirmModal("Tem certeza que deseja excluir este lançamento?", "Excluir", "Cancelar")
-              .then(ok => ok && services.deleteTransaction(id));
-        
-        } else if (btn.classList.contains('mark-as-paid-btn')) {
-            services.markTransactionAsPaid(id);
+            try {
+                btn.textContent = "Salvando...";
+                btn.disabled = true;
+                await services.saveInitialBalance(newBalance);
+                setConfig({ initialBalance: newBalance }); 
+                renderFullDashboard(); 
+                UI.DOM.initialBalanceModal.classList.add('hidden');
+            } catch (error) {
+                console.error(error);
+                UI.showInfoModal("Erro ao atualizar o saldo.");
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // AÇÕES DA LISTA DE TRANSAÇÕES
+        const isTransactionListClick = e.target.closest('#transactionsList');
+        if (isTransactionListClick && targetBtn.dataset.id) {
+            const id = targetBtn.dataset.id;
+            const transaction = services.getAllTransactions().find(t => t.id === id);
+
+            if (targetBtn.classList.contains('edit-transaction-btn')) {
+                handleEditTransaction(UI, id, services.getAllTransactions);
+            } else if (targetBtn.classList.contains('delete-transaction-btn')) {
+                if (transaction && transaction.orderId) {
+                    UI.showInfoModal("🔒 Esta transação está vinculada a um Pedido.\n\nRemova pelo Painel de Pedidos.");
+                    return;
+                }
+                UI.showConfirmModal("Excluir este lançamento?", "Excluir", "Cancelar")
+                  .then(ok => { if(ok) services.deleteTransaction(id); });
+            } else if (targetBtn.classList.contains('mark-as-paid-btn')) {
+                // Reaproveitamos o Modal de Quitação para perguntar a Data e a Origem (Banco/Caixa)
+                const settlementData = await UI.showSettlementModal(id, transaction.amount);
+                
+                if (settlementData) {
+                    // [NOVO] 1. Salva a transação com o valor FINAL exato (com juros/descontos)
+                    const updatedTransaction = {
+                        ...transaction,
+                        date: settlementData.date,
+                        source: settlementData.source, 
+                        status: 'pago', 
+                        amount: settlementData.finalAmount !== undefined ? settlementData.finalAmount : transaction.amount
+                    };
+                    await services.saveTransaction(updatedTransaction, id);
+
+                    // [EFEITO DOMINÓ] 2. Se for o fiado de um Pedido, atualiza a matemática do Pedido também!
+                    if (transaction.orderId && services.getAllOrders && services.saveOrder) {
+                        const linkedOrder = services.getAllOrders().find(o => o.id === transaction.orderId);
+                        
+                        if (linkedOrder) {
+                            const novoDesconto = settlementData.discountAdded || 0;
+                            const novoAcrescimo = settlementData.surchargeAdded || 0;
+                            
+                            // Abate os juros do desconto (Juros entra como desconto negativo para fechar a conta do PDF)
+                            linkedOrder.discount = (linkedOrder.discount || 0) + novoDesconto - novoAcrescimo;
+                            await services.saveOrder(linkedOrder, linkedOrder.id);
+                        }
+                    }
+                }
+            }
         }
     });
 
-    // --- Filtros do Dashboard Financeiro ---
-    
+    // --- FORMULÁRIO DE TRANSAÇÃO (Motor Lote / Parcelado Integrado) ---
+    UI.DOM.transactionForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const selectedSourceEl = UI.DOM.transactionSourceContainer.querySelector('.source-selector.active');
+        if (!selectedSourceEl) return UI.showInfoModal("Selecione a Origem (Banco ou Caixa).");
+        
+        const baseDate = UI.DOM.transactionDate.value;
+        const baseDesc = UI.DOM.transactionDescription.value;
+        const amount = parseFloat(UI.DOM.transactionAmount.value);
+        const type = UI.DOM.transactionType.value;
+        const category = UI.DOM.transactionCategory.value.trim();
+        const source = selectedSourceEl.dataset.source;
+        const status = document.getElementById('pendente').checked ? (type === 'income' ? 'a_receber' : 'a_pagar') : 'pago';
+        
+        if (!baseDate || !baseDesc || isNaN(amount) || amount <= 0) {
+            return UI.showInfoModal("Preencha todos os campos com valores válidos.");
+        }
+
+        const isRecurring = document.getElementById('isRecurringCb')?.checked;
+        const installmentsStr = document.getElementById('installmentsCount')?.value;
+        const installments = parseInt(installmentsStr) || 1;
+        const isEdit = !!UI.DOM.transactionId.value;
+
+        try {
+            // [MOTOR SÊNIOR] Geração em Lote se for recorrente e NOVO lançamento
+            if (!isEdit && isRecurring && installments > 1) {
+                // Trava visual de segurança para cliques duplos rápidos
+                const submitBtn = document.getElementById('saveTransactionBtn');
+                if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Gerando...'; }
+
+                const promises = [];
+                
+                // Calculadora de Calendário Sênior (Impede bug do Dia 31 -> Mês Curto)
+                const addExactMonths = (dateStr, monthsToAdd) => {
+                    const [y, m, d] = dateStr.split('-').map(Number);
+                    const date = new Date(y, m - 1 + monthsToAdd, d);
+                    if (date.getMonth() !== ((m - 1 + monthsToAdd) % 12 + 12) % 12) {
+                        date.setDate(0); // Volta pro último dia útil correto (Ex: 28 Fev)
+                    }
+                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                };
+
+                // Executa a repetição exata
+                for (let i = 0; i < installments; i++) {
+                    const parcelData = {
+                        date: addExactMonths(baseDate, i),
+                        description: `${baseDesc} (${i + 1}/${installments})`,
+                        amount: amount,
+                        type: type,
+                        category: category,
+                        source: source,
+                        status: status
+                    };
+                    promises.push(services.saveTransaction(parcelData, null)); // Null força a criação de IDs únicos
+                }
+                
+                await Promise.all(promises);
+                
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Salvar'; }
+                UI.hideTransactionModal();
+                UI.showInfoModal(`${installments} parcelas geradas com sucesso!`);
+            } else {
+                // [FLUXO NORMAL] Lançamento Único ou Edição (Intacto)
+                const data = { date: baseDate, description: baseDesc, amount, type, category, source, status };
+                await services.saveTransaction(data, UI.DOM.transactionId.value);
+                UI.hideTransactionModal();
+            }
+        } catch (error) {
+            console.error("Erro no processamento:", error);
+            UI.showInfoModal("Ocorreu um erro interno. Verifique o console.");
+            const submitBtn = document.getElementById('saveTransactionBtn');
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Salvar'; }
+        }
+    });
+
+    UI.DOM.cancelTransactionBtn.addEventListener('click', () => UI.hideTransactionModal());
+
+    // --- FILTROS (DELEGAÇÃO) ---
     let filterDebounceTimeout;
 
     const renderFullDashboard = () => {
-        const filter = UI.DOM.periodFilter ? UI.DOM.periodFilter.value : 'thisMonth';
+        const periodFilterEl = document.getElementById('periodFilter');
+        const startDateInputEl = document.getElementById('startDateInput');
+        const endDateInputEl = document.getElementById('endDateInput');
+
+        const filter = periodFilterEl ? periodFilterEl.value : 'thisMonth';
         const now = new Date();
         let startDate = null, endDate = null;
 
         if (filter === 'custom') {
-            if (UI.DOM.startDateInput.value) startDate = new Date(UI.DOM.startDateInput.value + 'T00:00:00');
-            if (UI.DOM.endDateInput.value) endDate = new Date(UI.DOM.endDateInput.value + 'T23:59:59');
+            if (startDateInputEl && startDateInputEl.value) startDate = new Date(startDateInputEl.value + 'T00:00:00');
+            if (endDateInputEl && endDateInputEl.value) endDate = new Date(endDateInputEl.value + 'T23:59:59');
         } else {
             const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
             const endOfThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
@@ -227,97 +360,34 @@ export function initializeFinanceListeners(UI, deps) {
              endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
         }
 
-        const pendingRevenue = services.calculateTotalPendingRevenue 
-            ? services.calculateTotalPendingRevenue(startDate, endDate) 
-            : 0;
-            
+        const pendingRevenue = services.calculateTotalPendingRevenue ? services.calculateTotalPendingRevenue(startDate, endDate) : 0;
         UI.renderFinanceDashboard(services.getAllTransactions(), getConfig(), pendingRevenue);
     };
 
-    UI.DOM.periodFilter.addEventListener('change', () => { 
-        UI.DOM.customPeriodContainer.classList.toggle('hidden', UI.DOM.periodFilter.value !== 'custom'); 
-        renderFullDashboard(); 
-    });
-
-    [UI.DOM.startDateInput, UI.DOM.endDateInput, UI.DOM.transactionSearchInput].forEach(element => {
-        if(element) {
-            element.addEventListener('input', () => {
-                clearTimeout(filterDebounceTimeout);
-                filterDebounceTimeout = setTimeout(renderFullDashboard, 300); 
-            });
+    document.addEventListener('change', (e) => {
+        if (e.target.id === 'periodFilter') {
+            const customContainer = document.getElementById('customPeriodContainer');
+            if (customContainer) customContainer.classList.toggle('hidden', e.target.value !== 'custom');
+            renderFullDashboard();
+        }
+        
+        // [NOVO] Mostrar/Esconder o campo de "Quantidade de Meses" suavemente
+        if (e.target.id === 'isRecurringCb') {
+            const container = document.getElementById('recurringDetailsContainer');
+            if (container) container.classList.toggle('hidden', !e.target.checked);
         }
     });
 
-    // --- Ajuste de Saldo ---
-    
-    // 1. Abrir Modal
-    UI.DOM.adjustBalanceBtn.addEventListener('click', () => {
-        // Busca o valor atual e formata com 2 casas decimais
-        const currentBalance = getConfig().initialBalance || 0;
-        UI.DOM.initialBalanceInput.value = currentBalance.toFixed(2);
-        
-        UI.DOM.initialBalanceModal.classList.remove('hidden');
-        
-        // UX: Foca automaticamente no campo para facilitar a digitação
-        setTimeout(() => UI.DOM.initialBalanceInput.focus(), 50);
-    });
-
-    // 2. Botão Cancelar (A Lógica que faltava!)
-    const closeBalanceModal = () => {
-        UI.DOM.initialBalanceModal.classList.add('hidden');
-    };
-    
-    // Verifica se o botão existe antes de adicionar o evento (Defesa contra erros)
-    if (UI.DOM.cancelBalanceBtn) {
-        UI.DOM.cancelBalanceBtn.addEventListener('click', closeBalanceModal);
-    }
-
-    // 3. Botão Salvar (Com Feedback Visual e Atualização Garantida)
-    UI.DOM.saveBalanceBtn.addEventListener('click', async () => {
-        const btn = UI.DOM.saveBalanceBtn;
-        const originalText = btn.textContent; // Guarda o texto "Salvar"
-        
-        // Converte o valor inputado (substitui vírgula por ponto por segurança)
-        const inputValue = UI.DOM.initialBalanceInput.value.replace(',', '.');
-        const newBalance = parseFloat(inputValue);
-
-        if (isNaN(newBalance)) {
-            UI.showInfoModal("Por favor, insira um valor numérico válido.");
-            return;
-        }
-
-        try {
-            // UX: Muda o botão para o usuário ver que algo está acontecendo
-            btn.textContent = "Salvando...";
-            btn.disabled = true;
-
-            // Passo A: Aguarda o salvamento no Banco de Dados (Firebase)
-            await services.saveInitialBalance(newBalance);
-            
-            // Passo B: Atualiza IMEDIATAMENTE a configuração local na memória
-            setConfig({ initialBalance: newBalance }); 
-            
-            // Passo C: Força o Dashboard a recalcular tudo agora
-            renderFullDashboard(); 
-            
-            // Passo D: Fecha o modal com sucesso
-            closeBalanceModal();
-
-        } catch (error) {
-            console.error("Erro crítico ao salvar saldo:", error);
-            UI.showInfoModal("Não foi possível atualizar o saldo. Verifique sua conexão.");
-        } finally {
-            // Restaura o botão para o estado original, aconteça o que acontecer
-            btn.textContent = originalText;
-            btn.disabled = false;
+    document.addEventListener('input', (e) => {
+        if (['startDateInput', 'endDateInput', 'transactionSearchInput'].includes(e.target.id)) {
+            clearTimeout(filterDebounceTimeout);
+            filterDebounceTimeout = setTimeout(renderFullDashboard, 300);
         }
     });
 
-    // --- Seletor de Origem (Banco/Caixa) ---
+    // --- ORIGEM BANCO/CAIXA ---
     UI.DOM.transactionSourceContainer.addEventListener('click', (e) => {
         const target = e.target.closest('.source-selector');
-        if (target) {
-            UI.updateSourceSelectionUI(UI.DOM.transactionSourceContainer, target.dataset.source);
-        }
+        if (target) UI.updateSourceSelectionUI(UI.DOM.transactionSourceContainer, target.dataset.source);
     });
 }
