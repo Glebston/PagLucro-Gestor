@@ -116,69 +116,70 @@ export function initializeModalAndPricingListeners(UI, deps) {
         }
     });
 
-    // --- Listener Global de Teclado para Atalhos ---
-    // v5.7.6: Esta seção está CORRETA. Ela clica nos botões, 
-    // e os botões agora disparam os listeners corretos que 
-    // usam o modalHandler. Nenhuma alteração necessária aqui.
+    // --- Listener Global de Teclado para Atalhos (SPA Seguro) ---
     document.addEventListener('keydown', (event) => {
+        // Helper interno para verificar visibilidade com segurança (evita erro de null)
+        const isVisible = (element) => element && !element.classList.contains('hidden');
+
         // Atalho para confirmação (Enter)
         if (event.key === 'Enter') {
-            if (!UI.DOM.confirmModal.classList.contains('hidden')) {
-                UI.DOM.confirmOkBtn.click();
+            if (isVisible(UI.DOM.confirmModal)) {
+                if (UI.DOM.confirmOkBtn) UI.DOM.confirmOkBtn.click();
                 event.preventDefault(); 
             } 
-            else if (!UI.DOM.settlementModal.classList.contains('hidden')) {
-                UI.DOM.settlementConfirmBtn.click();
+            else if (isVisible(UI.DOM.settlementModal)) {
+                if (UI.DOM.settlementConfirmBtn) UI.DOM.settlementConfirmBtn.click();
                 event.preventDefault();
             }
-            else if (!UI.DOM.initialBalanceModal.classList.contains('hidden')) {
-                UI.DOM.saveBalanceBtn.click();
+            else if (isVisible(UI.DOM.initialBalanceModal)) {
+                if (UI.DOM.saveBalanceBtn) UI.DOM.saveBalanceBtn.click();
                 event.preventDefault();
             } 
-            else if (!UI.DOM.forgotPasswordModal.classList.contains('hidden')) {
-                UI.DOM.sendResetEmailBtn.click();
+            else if (isVisible(UI.DOM.forgotPasswordModal)) {
+                if (UI.DOM.sendResetEmailBtn) UI.DOM.sendResetEmailBtn.click();
                 event.preventDefault();
             } 
-            else if (!UI.DOM.infoModal.classList.contains('hidden')) {
-                UI.DOM.infoModalCloseBtn.click();
+            else if (isVisible(UI.DOM.infoModal)) {
+                if (UI.DOM.infoModalCloseBtn) UI.DOM.infoModalCloseBtn.click();
             }
         }
 
         // Atalho para cancelamento/fechamento (Escape)
         if (event.key === 'Escape') {
-            if (!UI.DOM.confirmModal.classList.contains('hidden')) {
-                UI.DOM.confirmCancelBtn.click();
+            if (isVisible(UI.DOM.confirmModal)) {
+                if (UI.DOM.confirmCancelBtn) UI.DOM.confirmCancelBtn.click();
             } 
-            else if (!UI.DOM.settlementModal.classList.contains('hidden')) {
-                UI.DOM.settlementCancelBtn.click();
+            else if (isVisible(UI.DOM.settlementModal)) {
+                if (UI.DOM.settlementCancelBtn) UI.DOM.settlementCancelBtn.click();
             }
-            else if (!UI.DOM.initialBalanceModal.classList.contains('hidden')) {
-                UI.DOM.cancelBalanceBtn.click();
+            else if (isVisible(UI.DOM.initialBalanceModal)) {
+                if (UI.DOM.cancelBalanceBtn) UI.DOM.cancelBalanceBtn.click();
             } 
-            else if (!UI.DOM.forgotPasswordModal.classList.contains('hidden')) {
-                UI.DOM.cancelResetBtn.click();
+            else if (isVisible(UI.DOM.forgotPasswordModal)) {
+                if (UI.DOM.cancelResetBtn) UI.DOM.cancelResetBtn.click();
             } 
-            else if (!UI.DOM.viewModal.classList.contains('hidden')) {
-                document.getElementById('closeViewBtn')?.click();
+            else if (isVisible(UI.DOM.viewModal)) {
+                const closeBtn = document.getElementById('closeViewBtn');
+                if (closeBtn) closeBtn.click();
             } 
-            else if (!UI.DOM.orderModal.classList.contains('hidden')) {
-                UI.DOM.cancelBtn.click();
+            else if (isVisible(UI.DOM.orderModal)) {
+                if (UI.DOM.cancelBtn) UI.DOM.cancelBtn.click();
             } 
-            else if (!UI.DOM.priceTableModal.classList.contains('hidden')) {
-                if (!UI.DOM.cancelPriceTableBtn.classList.contains('hidden')) {
+            else if (isVisible(UI.DOM.priceTableModal)) {
+                if (isVisible(UI.DOM.cancelPriceTableBtn)) {
                     UI.DOM.cancelPriceTableBtn.click();
-                } else {
+                } else if (UI.DOM.closePriceTableBtn) {
                     UI.DOM.closePriceTableBtn.click();
                 }
             }
-            else if (!UI.DOM.transactionModal.classList.contains('hidden')) {
-                UI.DOM.cancelTransactionBtn.click();
+            else if (isVisible(UI.DOM.transactionModal)) {
+                if (UI.DOM.cancelTransactionBtn) UI.DOM.cancelTransactionBtn.click();
             }
-            else if (!UI.DOM.optionsModal.classList.contains('hidden')) {
-                UI.DOM.closeOptionsModalBtn.click();
+            else if (isVisible(UI.DOM.optionsModal)) {
+                if (UI.DOM.closeOptionsModalBtn) UI.DOM.closeOptionsModalBtn.click();
             }
-            else if (!UI.DOM.infoModal.classList.contains('hidden')) {
-                UI.DOM.infoModalCloseBtn.click();
+            else if (isVisible(UI.DOM.infoModal)) {
+                if (UI.DOM.infoModalCloseBtn) UI.DOM.infoModalCloseBtn.click();
             }
         }
     });
