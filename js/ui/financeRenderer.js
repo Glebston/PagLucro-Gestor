@@ -17,7 +17,8 @@ const formatCurrency = (value) => {
 
 const generateTransactionRowHTML = (t) => {
     const isIncome = t.type === 'income';
-    const isReceivable = isIncome && t.status === 'a_receber';
+    const isReceivable = isIncome && (t.status === 'a_receber' || t.status === 'pendente');
+    const isPayable = !isIncome && (t.status === 'a_pagar' || t.status === 'pendente');
     
     const amountClass = isIncome ? 'text-green-600' : 'text-red-600';
     const formattedDate = new Date(t.date + 'T00:00:00').toLocaleDateString('pt-BR');
@@ -25,14 +26,19 @@ const generateTransactionRowHTML = (t) => {
     // Uso da formatação brasileira
     const transactionAmount = typeof t.amount === 'number' ? formatCurrency(t.amount).replace('R$', '').trim() : '0,00';
     
-    const statusBadge = isReceivable ? `<span class="ml-2 text-xs font-semibold py-1 px-2 rounded-full bg-yellow-100 text-yellow-800">A Receber</span>` : '';
+    let statusBadge = '';
+    if (isReceivable) statusBadge = `<span class="ml-2 text-xs font-semibold py-1 px-2 rounded-full bg-yellow-100 text-yellow-800">A Receber</span>`;
+    else if (isPayable) statusBadge = `<span class="ml-2 text-xs font-semibold py-1 px-2 rounded-full bg-orange-100 text-orange-800">A Pagar</span>`;
+
     const sourceBadge = `<span class="text-xs font-semibold py-1 px-2 rounded-full ${t.source === 'caixa' ? 'bg-gray-200 text-gray-800' : 'bg-indigo-100 text-indigo-800'}">${t.source === 'caixa' ? 'Caixa' : 'Banco'}</span>`;
     
     const isLinkedToOrder = !!t.orderId;
     let actionsHtml = '';
 
     if (isReceivable) { 
-        actionsHtml = `<button data-id="${t.id}" class="mark-as-paid-btn text-green-600 hover:underline text-sm font-semibold">Receber</button> `;
+        actionsHtml = `<button data-id="${t.id}" class="mark-as-paid-btn text-green-600 hover:underline text-sm font-semibold mr-2">Receber</button> `;
+    } else if (isPayable) {
+        actionsHtml = `<button data-id="${t.id}" class="mark-as-paid-btn text-green-600 hover:underline text-sm font-semibold mr-2 flex items-center inline-flex gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Dar Baixa</button> `;
     }
 
     actionsHtml += `
@@ -58,34 +64,45 @@ const generateTransactionRowHTML = (t) => {
     `;
 };
 
+// [PROTEÇÃO SPA] Helper para buscar a lista de lançamentos em tempo real
+const getTransactionsList = () => document.getElementById('transactionsList');
+
 export const addTransactionRow = (transaction) => {
+    const listEl = getTransactionsList();
+    if (!listEl) return;
+
     const tr = document.createElement('tr');
-    tr.className = `border-b hover:bg-gray-50 ${transaction.status === 'a_receber' ? 'bg-yellow-50' : ''}`;
+    const isPendingRow = transaction.status === 'a_receber' || transaction.status === 'a_pagar' || transaction.status === 'pendente';
+    tr.className = `border-b hover:bg-gray-50 ${isPendingRow ? 'bg-yellow-50' : ''}`;
     tr.dataset.id = transaction.id;
     tr.dataset.date = transaction.date;
     tr.innerHTML = generateTransactionRowHTML(transaction);
 
-    const allRows = Array.from(DOM.transactionsList.querySelectorAll('tr[data-id]'));
+    const allRows = Array.from(listEl.querySelectorAll('tr[data-id]'));
     let inserted = false;
     for (const existingRow of allRows) {
         if (transaction.date > existingRow.dataset.date) {
-            DOM.transactionsList.insertBefore(tr, existingRow);
+            listEl.insertBefore(tr, existingRow);
             inserted = true;
             break;
         }
     }
     if (!inserted) {
-        DOM.transactionsList.appendChild(tr);
+        listEl.appendChild(tr);
     }
     
-    const placeholder = DOM.transactionsList.querySelector('.transactions-placeholder');
+    const placeholder = listEl.querySelector('.transactions-placeholder');
     if (placeholder) placeholder.remove();
 };
 
 export const updateTransactionRow = (transaction) => {
-    const row = DOM.transactionsList.querySelector(`tr[data-id="${transaction.id}"]`);
+    const listEl = getTransactionsList();
+    if (!listEl) return;
+
+    const row = listEl.querySelector(`tr[data-id="${transaction.id}"]`);
     if (row) {
-        row.className = `border-b hover:bg-gray-50 ${transaction.status === 'a_receber' ? 'bg-yellow-50' : ''}`;
+        const isPendingRow = transaction.status === 'a_receber' || transaction.status === 'a_pagar' || transaction.status === 'pendente';
+        row.className = `border-b hover:bg-gray-50 ${isPendingRow ? 'bg-yellow-50' : ''}`;
         row.innerHTML = generateTransactionRowHTML(transaction);
         const oldDate = row.dataset.date;
         if (transaction.date !== oldDate) {
@@ -96,27 +113,38 @@ export const updateTransactionRow = (transaction) => {
 };
 
 export const removeTransactionRow = (transactionId) => {
-    const row = DOM.transactionsList.querySelector(`tr[data-id="${transactionId}"]`);
+    const listEl = getTransactionsList();
+    if (!listEl) return;
+
+    const row = listEl.querySelector(`tr[data-id="${transactionId}"]`);
     if (row) {
         row.remove();
     }
-    if (DOM.transactionsList.children.length === 0) {
+    if (listEl.children.length === 0) {
         showTransactionsPlaceholder(false);
     }
 };
 
 const showTransactionsPlaceholder = (isSearch) => {
+    const listEl = getTransactionsList();
+    if (!listEl) return;
+
     const message = isSearch ? 'Nenhum lançamento encontrado para a busca.' : 'Nenhum lançamento encontrado para este período.';
-    DOM.transactionsList.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-500 transactions-placeholder">${message}</td></tr>`;
+    listEl.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-gray-500 transactions-placeholder">${message}</td></tr>`;
 };
 
 export const renderFinanceKPIs = (allTransactions, userBankBalanceConfig, pendingOrdersValue = 0) => {
+
+    // [TRAVA MESTRA] Aborta 100% dos cálculos financeiros e logs se for Produção
+    if (window.USER_ROLE === 'production') return [];
     
-    // --- 1. LÓGICA DE FILTRO (PARA TABELA E FLUXO) ---
-    const filterValue = DOM.periodFilter ? DOM.periodFilter.value : 'thisMonth';
+    // --- 1. LÓGICA DE FILTRO (SPA SEGURO) ---
+    const periodFilterEl = document.getElementById('periodFilter');
+    const startDateInputEl = document.getElementById('startDateInput');
+    const endDateInputEl = document.getElementById('endDateInput');
+
+    const filterValue = periodFilterEl ? periodFilterEl.value : 'thisMonth';
     
-    // Reset inteligente: Se mudou o filtro, não zeramos o cache imediatamente para evitar piscar,
-    // apenas atualizamos a referência de contexto.
     if (filterValue !== lastContextFilter) {
         lastContextFilter = filterValue;
     }
@@ -125,8 +153,8 @@ export const renderFinanceKPIs = (allTransactions, userBankBalanceConfig, pendin
     let startDate, endDate;
 
     if (filterValue === 'custom') {
-        startDate = DOM.startDateInput.value ? new Date(DOM.startDateInput.value + 'T00:00:00') : null;
-        endDate = DOM.endDateInput.value ? new Date(DOM.endDateInput.value + 'T23:59:59') : null;
+        startDate = (startDateInputEl && startDateInputEl.value) ? new Date(startDateInputEl.value + 'T00:00:00') : null;
+        endDate = (endDateInputEl && endDateInputEl.value) ? new Date(endDateInputEl.value + 'T23:59:59') : null;
     } else {
         const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const endOfThisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
@@ -153,37 +181,57 @@ export const renderFinanceKPIs = (allTransactions, userBankBalanceConfig, pendin
         return true;
     });
 
-    // --- 2. CÁLCULO DE FLUXO (Respeita o Filtro) ---
-    let faturamentoBruto = 0, despesasTotais = 0, valorRecebidoPeriodo = 0;
+    // --- 2. CÁLCULO DE FLUXO ---
+    let faturamentoBruto = 0, despesasTotais = 0, valorRecebidoPeriodo = 0, valorPagoPeriodo = 0;
+    // [NOVO] Variáveis exclusivas para a Projeção do Período
+    let aReceberPeriodo = 0, aPagarPeriodo = 0; 
 
     filteredTransactions.forEach(t => {
         const amount = parseFloat(t.amount) || 0;
+        const isPending = t.status === 'a_receber' || t.status === 'a_pagar' || t.status === 'pendente';
+
         if (t.type === 'income') {
             faturamentoBruto += amount;
-            if (t.status !== 'a_receber') {
+            if (!isPending) {
                 valorRecebidoPeriodo += amount;
+            } else {
+                aReceberPeriodo += amount;
             }
         } else if (t.type === 'expense') {
             despesasTotais += amount;
+            if (!isPending) {
+                valorPagoPeriodo += amount;
+            } else {
+                aPagarPeriodo += amount;
+            }
         }
     });
 
-    const lucroLiquido = valorRecebidoPeriodo - despesasTotais;
+    // O Lucro Líquido agora é o reflexo exato do que movimentou o caixa (Recebido - Pago)
+    const lucroLiquido = valorRecebidoPeriodo - valorPagoPeriodo;
 
-    // --- 3. CÁLCULO DE SALDOS (Eterno) ---
+    // --- 3. CÁLCULO DE SALDOS ---
     let totalBank = userBankBalanceConfig.initialBalance || 0;
     let totalCash = 0; 
     let totalReceivablesTransaction = 0;
+    let totalPayablesTransaction = 0;
 
     allTransactions.forEach(t => {
         const amount = parseFloat(t.amount) || 0;
+        const isPending = t.status === 'a_receber' || t.status === 'a_pagar' || t.status === 'pendente';
         
-        if (t.type === 'income' && t.status === 'a_receber') {
+        if (isPending && t.type === 'income') {
             totalReceivablesTransaction += amount;
             return; 
         }
 
-        if (t.status !== 'a_receber') {
+        if (isPending && t.type === 'expense') {
+            totalPayablesTransaction += amount;
+            return; // Bloqueia o desconto do saldo em conta/caixa!
+        }
+
+        // Se chegou aqui, a transação foi efetivamente PAGA/RECEBIDA
+        if (!isPending) {
             if (t.source === 'caixa') {
                 if (t.type === 'income') totalCash += amount;
                 else if (t.type === 'expense') totalCash -= amount;
@@ -194,44 +242,93 @@ export const renderFinanceKPIs = (allTransactions, userBankBalanceConfig, pendin
         }
     });
 
-    // --- 4. BLINDAGEM VISUAL INTELIGENTE (SMART SHIELD v2) ---
-    // Objetivo: Não mostrar Zero se tivermos um valor antigo, MAS aceitar atualizações reais.
-    
+    // --- 4. BLINDAGEM VISUAL INTELIGENTE ---
     let incomingOrdersValue = parseFloat(pendingOrdersValue) || 0;
     let finalOrdersValue = incomingOrdersValue;
 
     if (incomingOrdersValue > 0) {
-        // Se veio um valor REAL (ex: 200), atualizamos o cache e a tela.
-        // Isso corrige o travamento no valor antigo (190).
         if (incomingOrdersValue !== internalPendingRevenueCache) {
-            console.log(`[RENDERER] Atualizando Cache A Receber: R$ ${internalPendingRevenueCache} -> R$ ${incomingOrdersValue}`);
             internalPendingRevenueCache = incomingOrdersValue;
         }
     } else if (incomingOrdersValue === 0) {
-        // Se veio ZERO (provável delay de rede) e temos cache, usamos o cache.
         if (internalPendingRevenueCache > 0) {
-            // console.warn(`🛡️ [RENDERER] Escudo Ativado: Mantendo R$ ${internalPendingRevenueCache} enquanto carrega.`);
             finalOrdersValue = internalPendingRevenueCache;
         }
-        // Se não temos cache (primeira carga real zero), mantém zero.
     }
 
     const totalReceivables = totalReceivablesTransaction + finalOrdersValue;
 
-    // --- 5. ATUALIZAÇÃO DO DOM ---
-    if (DOM.faturamentoBruto) DOM.faturamentoBruto.textContent = formatCurrency(faturamentoBruto);
-    if (DOM.despesasTotais) DOM.despesasTotais.textContent = formatCurrency(despesasTotais);
+    // --- 5. ATUALIZAÇÃO DO DOM (BUSCA DINÂMICA NA SPA) ---
+    const fatBrutoEl = document.getElementById('faturamentoBruto');
+    const despTotaisEl = document.getElementById('despesasTotais');
+    const contasRecEl = document.getElementById('contasAReceber');
+    const lucroLiqEl = document.getElementById('lucroLiquido');
+    const saldoContaEl = document.getElementById('saldoEmConta');
+    const saldoCaixaEl = document.getElementById('saldoEmCaixa');
     
-    if (DOM.contasAReceber) {
-        DOM.contasAReceber.textContent = formatCurrency(totalReceivables);
-        // Remove atributo de loading se existir
-        if (DOM.contasAReceber.hasAttribute('data-trusted')) DOM.contasAReceber.removeAttribute('data-trusted');
+    // Captura os novos elementos do Raio-X
+    const termEntradasValorEl = document.getElementById('termometroEntradasValor');
+    const termEntradasBarraEl = document.getElementById('termometroEntradasBarra');
+    const termSaidasValorEl = document.getElementById('termometroSaidasValor');
+    const termSaidasBarraEl = document.getElementById('termometroSaidasBarra');
+    const indInadimplenciaEl = document.getElementById('indicadorInadimplencia');
+    const indProjecaoEl = document.getElementById('indicadorProjecao');
+    
+    if (fatBrutoEl) fatBrutoEl.textContent = formatCurrency(faturamentoBruto);
+    if (despTotaisEl) despTotaisEl.textContent = formatCurrency(despesasTotais);
+    
+    if (contasRecEl) {
+        contasRecEl.textContent = formatCurrency(totalReceivables);
+        if (contasRecEl.hasAttribute('data-trusted')) contasRecEl.removeAttribute('data-trusted');
     }
     
-    if (DOM.lucroLiquido) DOM.lucroLiquido.textContent = formatCurrency(lucroLiquido);
+    if (lucroLiqEl) lucroLiqEl.textContent = formatCurrency(lucroLiquido);
+    if (saldoContaEl) saldoContaEl.textContent = formatCurrency(totalBank);
+    if (saldoCaixaEl) saldoCaixaEl.textContent = formatCurrency(totalCash);
+
+    // ==========================================
+    // INÍCIO: MOTOR DO RAIO-X DA SEMANA
+    // ==========================================
     
-    if (DOM.saldoEmConta) DOM.saldoEmConta.textContent = formatCurrency(totalBank);
-    if (DOM.saldoEmCaixa) DOM.saldoEmCaixa.textContent = formatCurrency(totalCash);
+    // 1. Termômetro do Mês (Proporção visual de Receitas Pagas vs Despesas Pagas)
+    if (termEntradasValorEl && termSaidasValorEl) {
+        termEntradasValorEl.textContent = formatCurrency(valorRecebidoPeriodo);
+        termSaidasValorEl.textContent = formatCurrency(valorPagoPeriodo);
+        
+        const maxTermometro = Math.max(valorRecebidoPeriodo, valorPagoPeriodo);
+        const percEntradas = maxTermometro > 0 ? (valorRecebidoPeriodo / maxTermometro) * 100 : 0;
+        const percSaidas = maxTermometro > 0 ? (valorPagoPeriodo / maxTermometro) * 100 : 0;
+        
+        if (termEntradasBarraEl) termEntradasBarraEl.style.width = `${percEntradas}%`;
+        if (termSaidasBarraEl) termSaidasBarraEl.style.width = `${percSaidas}%`;
+    }
+
+    // 2. Inadimplência Oculta (APENAS os "Fiados", ignorando o dinheiro futuro dos pedidos em produção)
+    if (indInadimplenciaEl) {
+        // totalReceivablesTransaction foi isolado na Fase 1 para conter apenas as promessas já vencidas/entregues
+        indInadimplenciaEl.textContent = formatCurrency(totalReceivablesTransaction);
+    }
+
+    // 3. Projeção de Caixa (A Matemática Mágica)
+    if (indProjecaoEl) {
+        const saldoRealAtual = totalBank + totalCash;
+        // [NOVO CÁLCULO] Projeção do Mês = Saldo no Bolso + (Dinheiro dos Pedidos em Produção + Fiados do Período) - (Contas a Pagar do Período)
+        const projecao = saldoRealAtual + finalOrdersValue + aReceberPeriodo - aPagarPeriodo;
+        
+        indProjecaoEl.textContent = formatCurrency(projecao);
+        
+        // Alerta visual agressivo: Se a projeção for fechar no vermelho, a cor muda para vermelho
+        if (projecao < 0) {
+            indProjecaoEl.classList.remove('text-white');
+            indProjecaoEl.classList.add('text-red-400');
+        } else {
+            indProjecaoEl.classList.add('text-white');
+            indProjecaoEl.classList.remove('text-red-400');
+        }
+    }
+    // ==========================================
+    // FIM: MOTOR DO RAIO-X DA SEMANA
+    // ==========================================
     
     // --- 6. CATEGORIAS ---
     const expenseCategories = {}, incomeCategories = {};
@@ -272,28 +369,56 @@ export const renderFinanceKPIs = (allTransactions, userBankBalanceConfig, pendin
         containerElement.innerHTML = html;
     };
 
-    formatCategoryList(expenseCategories, DOM.topExpensesByCategory);
-    formatCategoryList(incomeCategories, DOM.topIncomesByCategory);
+    formatCategoryList(expenseCategories, document.getElementById('topExpensesByCategory'));
+    formatCategoryList(incomeCategories, document.getElementById('topIncomesByCategory'));
     
     return filteredTransactions;
 };
 
 export const renderFinanceDashboard = (allTransactions, userBankBalanceConfig, pendingOrdersValue = 0) => {
-    if (!DOM.periodFilter) return;
+    if (window.USER_ROLE === 'production') return;
+    
+    const periodFilterEl = document.getElementById('periodFilter');
+    if (!periodFilterEl) return; // Se o ecrã não estiver montado, aborta a injeção em segurança
 
+    // ==========================================================
+    // INÍCIO DA CIRURGIA CORRIGIDA: Sincronização Automática
+    // ==========================================================
+    if (!periodFilterEl.dataset.syncDone) {
+        periodFilterEl.dataset.syncDone = 'true';
+        
+        // Dá um atraso de 150ms para garantir que o HTML já foi colado no navegador.
+        // O evento "change" agora será ouvido globalmente com sucesso!
+        setTimeout(() => {
+            const filtroCorrigido = document.getElementById('periodFilter');
+            if (filtroCorrigido) {
+                filtroCorrigido.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }, 150); 
+    }
+    // ==========================================================
+    // FIM DA CIRURGIA
+    // ==========================================================
+
+    // Continua a renderização normal para não deixar o ecrã em branco
     const filteredTransactions = renderFinanceKPIs(allTransactions, userBankBalanceConfig, pendingOrdersValue);
 
-    const searchTerm = DOM.transactionSearchInput.value.toLowerCase();
+    const searchInputEl = document.getElementById('transactionSearchInput');
+    const searchTerm = searchInputEl ? searchInputEl.value.toLowerCase() : '';
+    
     const displayTransactions = searchTerm ?
         filteredTransactions.filter(t => t.description.toLowerCase().includes(searchTerm)) :
         filteredTransactions;
         
-    DOM.transactionsList.innerHTML = ''; 
-    if (displayTransactions.length === 0) {
-        showTransactionsPlaceholder(searchTerm.length > 0);
-        return;
+    const listEl = getTransactionsList();
+    if (listEl) {
+        listEl.innerHTML = ''; 
+        if (displayTransactions.length === 0) {
+            showTransactionsPlaceholder(searchTerm.length > 0);
+            return;
+        }
+        
+        displayTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+        displayTransactions.forEach(addTransactionRow);
     }
-    
-    displayTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-    displayTransactions.forEach(addTransactionRow);
 };
