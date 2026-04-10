@@ -15,7 +15,8 @@ import {
     query,
     where,
     arrayUnion,
-    getDoc
+    getDoc,
+    getCountFromServer
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 let usersCache = [];
@@ -23,34 +24,62 @@ let usersCache = [];
 export async function initializeAdminPanel() {
     console.log("👑 [ADMIN v3.2] Inicializando CRM + Gestão de Planos...");
 
-    const adminBtn = document.getElementById('adminPanelBtn');
-    const adminModal = document.getElementById('adminModal');
-    const closeBtn = document.getElementById('closeAdminModalBtn');
     const refreshBtn = document.getElementById('adminRefreshBtn');
     const searchInput = document.getElementById('adminSearchInput');
     const createBtn = document.getElementById('btnCreateCompany');
     
     // Listeners do Painel Principal
-    if (adminBtn) {
-        adminBtn.classList.remove('hidden');
-        adminBtn.addEventListener('click', () => {
-            adminModal.classList.remove('hidden');
-            loadUsers(); 
-        });
-    }
-
-    if (closeBtn) closeBtn.addEventListener('click', () => adminModal.classList.add('hidden'));
     if (refreshBtn) refreshBtn.addEventListener('click', loadUsers);
-    if (searchInput) searchInput.addEventListener('input', (e) => filterUsers(e.target.value));
+    if (searchInput) searchInput.addEventListener('input', applyFilters); // Alterado para a nova função
     if (createBtn) createBtn.addEventListener('click', handleCreateButton);
 
-    // Listeners do Modal de Detalhes
+    // Listeners dos Filtros de Inadimplência
+    document.querySelectorAll('.status-filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            // Remove o estilo ativo de todos
+            document.querySelectorAll('.status-filter-btn').forEach(b => {
+                b.classList.remove('bg-white', 'text-gray-800', 'shadow-sm', 'active-filter');
+                b.classList.add('text-gray-500', 'hover:bg-gray-300');
+            });
+            // Adiciona o estilo ativo no clicado
+            const clickedBtn = e.target.closest('button');
+            clickedBtn.classList.remove('text-gray-500', 'hover:bg-gray-300');
+            clickedBtn.classList.add('bg-white', 'text-gray-800', 'shadow-sm', 'active-filter');
+            
+            applyFilters();
+        });
+    });
+
+    // Listener do Megafone Global
+    const broadcastBtn = document.getElementById('btnSendBroadcast');
+    if (broadcastBtn) broadcastBtn.addEventListener('click', handleBroadcastSubmit);
+
+    // Listeners do Modal de Criação de Empresa (Novo)
+    const closeCreateBtn = document.getElementById('closeCreateCompanyBtn');
+    const submitCreateBtn = document.getElementById('submitNewCompanyBtn');
+    
+    if (closeCreateBtn) {
+        closeCreateBtn.addEventListener('click', () => {
+            document.getElementById('adminCreateCompanyModal').classList.add('hidden');
+        });
+    }
+    if (submitCreateBtn) submitCreateBtn.addEventListener('click', submitNewCompanyFromModal);
+
+    // Inicialização da IA (Preenchimento Turbo)
+    const btnSaveAiPrompt = document.getElementById('btnSaveAiPrompt');
+    if (btnSaveAiPrompt) btnSaveAiPrompt.addEventListener('click', handleSaveAiPrompt);
+    loadAiMasterPrompt();
+
+    // Listeners do Modal de Detalhes (Permanece, pois o ClientModal ainda é um modal dentro do admin.html)
     const closeDetailsBtn = document.getElementById('closeClientDetailsBtn');
     if (closeDetailsBtn) {
         closeDetailsBtn.addEventListener('click', () => {
             document.getElementById('adminClientModal').classList.add('hidden');
         });
     }
+
+    // Carrega a lista de empresas automaticamente ao entrar na página
+    loadUsers();
 }
 
 // --- CORE: LEITURA DE DADOS ---
@@ -77,12 +106,14 @@ async function loadUsers() {
             // Lógica de Plano (Novo v3.2)
             // Se não existir subscription, assume 'essencial' (Legacy)
             const planId = data.subscription?.planId || 'essencial';
+            const subPrice = data.subscription?.price || 0; // Captura o valor financeiro
 
             usersCache.push({
                 id: docSnap.id,
                 name: data.companyName || "Empresa (Sem Nome)",
                 email: data.email || "Email não registrado",
-                planId: planId, // Campo novo no Cache
+                planId: planId, 
+                price: subPrice, // Salva o valor no cache
                 isBlocked: data.isBlocked || false,
                 adminMessage: data.adminMessage || "",
                 createdAt: creationDate,
@@ -96,6 +127,7 @@ async function loadUsers() {
 
         usersCache.sort((a, b) => b.createdAt - a.createdAt);
         renderTable(usersCache);
+        updateFinancialDashboard(); // <-- Injeção do Dashboard de MRR
 
     } catch (error) {
         console.error("Erro ao carregar empresas:", error);
@@ -158,6 +190,11 @@ function renderTable(users) {
             <td class="p-4 align-top">
                 <div class="text-xs text-gray-600 font-medium">Último Acesso:</div>
                 <div class="text-xs text-blue-600 mb-2">${lastAccessText}</div>
+                <button class="count-orders-btn text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 py-1 px-2 rounded transition flex items-center gap-1 w-fit" data-id="${user.id}">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                    Ver Total de Pedidos
+                </button>
+                <div id="order-count-${user.id}" class="text-[11px] font-bold text-gray-800 mt-1 hidden"></div>
             </td>
 
             <td class="p-4 align-top">
@@ -205,6 +242,10 @@ function renderTable(users) {
             </td>
 
             <td class="p-4 align-top text-right flex flex-col gap-2 items-end">
+                <button class="impersonate-btn text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 p-2 rounded-full transition shadow-sm" data-id="${user.id}" title="Modo Deus: Entrar no sistema desta fábrica">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
+                </button>
+
                 <button class="view-details-btn text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 p-2 rounded-full transition" data-id="${user.id}" title="Ver Dossiê do Cliente">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                 </button>
@@ -323,9 +364,54 @@ function attachDynamicListeners() {
             await openClientDetails(id);
         });
     });
+
+    // Listener do Modo Deus (Impersonation)
+    document.querySelectorAll('.impersonate-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const id = e.target.closest('button').dataset.id;
+            if (confirm("⚠️ AVISO DE SEGURANÇA:\n\nVocê está prestes a entrar no sistema com os dados desta fábrica.\n\nQualquer alteração feita lá afetará o cliente real. Deseja prosseguir?")) {
+                localStorage.setItem('impersonateCompanyId', id);
+                window.location.href = 'index.html'; // Redireciona para o app e aciona o main.js
+            }
+        });
+    });
+
+    // Listener do Termômetro de Engajamento
+    document.querySelectorAll('.count-orders-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const button = e.target.closest('button');
+            const id = button.dataset.id;
+            await fetchOrderCount(id, button);
+        });
+    });
 }
 
 // --- LÓGICA DE NEGÓCIO: RENOVAÇÃO & CRM ---
+
+async function fetchOrderCount(companyId, btnElement) {
+    const countDisplay = document.getElementById(`order-count-${companyId}`);
+    const originalContent = btnElement.innerHTML;
+    
+    btnElement.innerHTML = '<span class="animate-pulse">Calculando...</span>';
+    btnElement.disabled = true;
+
+    try {
+        // Acesso ultra-rápido via getCountFromServer sem baixar documentos
+        const collRef = collection(db, `companies/${companyId}/orders`);
+        const snapshot = await getCountFromServer(collRef);
+        const total = snapshot.data().count;
+
+        btnElement.classList.add('hidden'); // Esconde o botão após contar
+        countDisplay.classList.remove('hidden');
+        countDisplay.innerHTML = `🛍️ ${total} pedido(s)`;
+
+    } catch (error) {
+        console.error("Erro ao contar pedidos:", error);
+        btnElement.innerHTML = originalContent;
+        btnElement.disabled = false;
+        alert("Erro de acesso. Verifique se as Regras do Firestore permitem que o Admin leia a coleção de pedidos.");
+    }
+}
 
 async function renewSubscription(companyId) {
     const user = usersCache.find(u => u.id === companyId);
@@ -381,10 +467,44 @@ async function openClientDetails(companyId) {
     const modal = document.getElementById('adminClientModal');
     if (!modal) return;
 
+    // Cálculo do LTV (Soma de todo o histórico de pagamentos via Front-end temporário)
+    const ltv = (user.paymentHistory || []).reduce((acc, curr) => {
+        const val = parseFloat((curr.amount || '0').toString().replace(',', '.'));
+        return acc + (isNaN(val) ? 0 : val);
+    }, 0);
+
     // Preenche Cabeçalho
     document.getElementById('detailCompanyName').textContent = user.name;
     document.getElementById('detailCompanyId').textContent = user.id;
     document.getElementById('detailCompanyEmail').textContent = user.email;
+    document.getElementById('detailCompanyLTV').textContent = `R$ ${ltv.toFixed(2).replace('.', ',')}`;
+    document.getElementById('detailCompanyPrice').textContent = `R$ ${parseFloat(user.price || 0).toFixed(2).replace('.', ',')}`;
+
+    // Desconecta o listener antigo do botão de preço clonando o elemento
+    const editPriceBtn = document.getElementById('editCompanyPriceBtn');
+    const newEditBtn = editPriceBtn.cloneNode(true);
+    editPriceBtn.parentNode.replaceChild(newEditBtn, editPriceBtn);
+    
+    // Função para editar o valor do contrato
+    newEditBtn.addEventListener('click', async () => {
+        const newVal = prompt(`Informe o novo valor da assinatura mensal para ${user.name}:`, user.price || 0);
+        if (newVal !== null) {
+            const numVal = parseFloat(newVal.replace(',', '.')); // Aceita vírgula ou ponto
+            if (!isNaN(numVal)) {
+                try {
+                    const ref = doc(db, "companies", companyId);
+                    await updateDoc(ref, { "subscription.price": numVal });
+                    user.price = numVal; // Atualiza o cache
+                    document.getElementById('detailCompanyPrice').textContent = `R$ ${numVal.toFixed(2).replace('.', ',')}`;
+                    updateFinancialDashboard(); // <-- Atualiza o topo da tela em tempo real
+                } catch (err) {
+                    alert("Erro ao salvar o valor no banco de dados.");
+                }
+            } else {
+                alert("Valor inválido. Digite apenas números.");
+            }
+        }
+    });
 
     // Renderiza Tabela Histórico
     const historyBody = document.getElementById('detailHistoryList');
@@ -561,18 +681,42 @@ async function deleteCompanyLogical(companyId) {
     }
 }
 
-async function handleCreateButton() {
-    const uid = prompt("PASSO 1/4: UID do usuário:");
-    if (!uid) return;
-    const email = prompt("PASSO 2/4: Email:");
-    if (!email) return;
-    const name = prompt("PASSO 3/4: Nome da Empresa:");
-    if (!name) return;
-const plan = prompt("PASSO 4/4: Digite o ID do plano ('essencial' = Plano PRO | 'pro' = Premium):", "essencial");    
-    await createNewCompany(uid.trim(), email.trim(), name.trim(), plan || 'essencial');
+function handleCreateButton() {
+    // Abre o novo Modal de Criação e limpa os campos residuais
+    document.getElementById('newCompanyUid').value = '';
+    document.getElementById('newCompanyEmail').value = '';
+    document.getElementById('newCompanyName').value = '';
+    document.getElementById('newCompanyPlan').value = 'essencial'; // Padrão
+    
+    document.getElementById('adminCreateCompanyModal').classList.remove('hidden');
 }
 
-async function createNewCompany(uid, email, name, planId) {
+async function submitNewCompanyFromModal() {
+    const uid = document.getElementById('newCompanyUid').value.trim();
+    const email = document.getElementById('newCompanyEmail').value.trim();
+    const name = document.getElementById('newCompanyName').value.trim();
+    const planId = document.getElementById('newCompanyPlan').value;
+    const priceInput = document.getElementById('newCompanyPrice').value;
+    const priceValue = priceInput ? parseFloat(priceInput) : 0;
+
+    if (!uid || !email || !name) {
+        alert("Por favor, preencha todos os campos obrigatórios (UID, Email e Nome).");
+        return;
+    }
+
+    const btn = document.getElementById('submitNewCompanyBtn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = 'Salvando...';
+    btn.disabled = true;
+
+    await createNewCompany(uid, email, name, planId, priceValue);
+
+    // Fecha modal e reseta botão após sucesso
+    document.getElementById('adminCreateCompanyModal').classList.add('hidden');
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+}
+async function createNewCompany(uid, email, name, planId, priceValue = 0) {
     try {
         const batch = writeBatch(db);
         const companyRef = doc(db, "companies", uid);
@@ -584,7 +728,8 @@ async function createNewCompany(uid, email, name, planId) {
             isDeleted: false,
             subscription: {
                 planId: planId.toLowerCase(),
-                status: 'active'
+                status: 'active',
+                price: priceValue // NOVO CAMPO FINANCEIRO
             },
             bankBalanceConfig: { initialBalance: 0 }
         });
@@ -621,9 +766,142 @@ function refreshRowUI(id, dueDateValue, isLifetimeValue) {
     }
 }
 
-function filterUsers(term) {
-    if (!term) { renderTable(usersCache); return; }
-    const lowerTerm = term.toLowerCase();
-    const filtered = usersCache.filter(u => u.name.toLowerCase().includes(lowerTerm) || u.email.toLowerCase().includes(lowerTerm));
+// --- MEGAFONE GLOBAL ---
+async function handleBroadcastSubmit() {
+    const input = document.getElementById('broadcastMessageInput');
+    const message = input.value.trim();
+    const btn = document.getElementById('btnSendBroadcast');
+
+    if (!message && !confirm("Deixar o campo vazio irá REMOVER o alerta ativo da tela de todos os clientes. Deseja continuar?")) {
+        return;
+    }
+
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="animate-pulse">Disparando...</span>';
+    btn.disabled = true;
+
+    try {
+        const ref = doc(db, "admin_settings", "broadcast");
+        await setDoc(ref, {
+            message: message,
+            updatedAt: serverTimestamp(),
+            active: message.length > 0
+        });
+
+        if (message) {
+            alert("📣 Alerta Global disparado com sucesso! Todos os clientes verão este aviso no próximo acesso.");
+        } else {
+            alert("✅ Alerta Global removido. A tela dos clientes está livre.");
+            input.value = ""; // Limpa a interface
+        }
+    } catch (error) {
+        console.error("Erro ao disparar megafone:", error);
+        alert("Erro de permissão. Verifique se adicionou a regra 'admin_settings' no Firestore.");
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// --- CONFIGURAÇÃO DA IA (PREENCHIMENTO TURBO) ---
+async function loadAiMasterPrompt() {
+    const input = document.getElementById('aiMasterPromptInput');
+    if (!input) return;
+    
+    try {
+        const ref = doc(db, "admin_settings", "ai_config");
+        const docSnap = await getDoc(ref);
+        if (docSnap.exists() && docSnap.data().masterPrompt) {
+            input.value = docSnap.data().masterPrompt;
+        }
+    } catch (error) {
+        console.error("Erro ao carregar Prompt Mestre da IA:", error);
+    }
+}
+
+async function handleSaveAiPrompt() {
+    const input = document.getElementById('aiMasterPromptInput');
+    const promptText = input.value.trim();
+    const btn = document.getElementById('btnSaveAiPrompt');
+
+    if (!promptText) {
+        alert("O Prompt Mestre não pode estar vazio!");
+        return;
+    }
+
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="animate-pulse">Salvando Cérebro...</span>';
+    btn.disabled = true;
+
+    try {
+        const ref = doc(db, "admin_settings", "ai_config");
+        // Usamos merge: true para caso no futuro adicionemos mais configs de IA, não apague as outras
+        await setDoc(ref, {
+            masterPrompt: promptText,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        alert("🧠 Prompt Mestre salvo com sucesso! A regra já está ativa no banco de dados.");
+    } catch (error) {
+        console.error("Erro ao salvar Prompt da IA:", error);
+        alert("Erro ao salvar. Verifique se adicionou a regra 'admin_settings' no Firestore.");
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+function applyFilters() {
+    const searchInput = document.getElementById('adminSearchInput');
+    const term = searchInput ? searchInput.value.toLowerCase() : '';
+    
+    const activeFilterBtn = document.querySelector('.status-filter-btn.active-filter');
+    const statusFilter = activeFilterBtn ? activeFilterBtn.dataset.filter : 'all';
+
+    const filtered = usersCache.filter(u => {
+        // 1. Condição de Texto (Nome ou Email)
+        const matchesText = !term || u.name.toLowerCase().includes(term) || u.email.toLowerCase().includes(term);
+        
+        // 2. Condição Financeira (Inadimplência)
+        let matchesStatus = true;
+        if (statusFilter === 'overdue') {
+            const status = calculateSubscriptionStatus(u.dueDate, u.isLifetime);
+            // Exibe apenas clientes vencidos que ainda não foram bloqueados (Dinheiro na rua)
+            matchesStatus = (status === 'expired' && !u.isBlocked); 
+        }
+
+        // Só mostra a empresa na tabela se ela passar nas duas condições
+        return matchesText && matchesStatus;
+    });
+
     renderTable(filtered);
+}
+
+// --- DASHBOARD FINANCEIRO ---
+function updateFinancialDashboard() {
+    let mrrTotal = 0;
+    let overdueTotal = 0;
+
+    usersCache.forEach(user => {
+        if (user.isDeleted) return;
+        
+        const price = parseFloat(user.price || 0);
+        const status = calculateSubscriptionStatus(user.dueDate, user.isLifetime);
+
+        // Soma MRR: Todas as fábricas que NÃO estão bloqueadas
+        if (!user.isBlocked) {
+            mrrTotal += price;
+        }
+
+        // Soma Dinheiro na Rua: Apenas assinantes Vencidos
+        if (status === 'expired' && !user.isBlocked) {
+            overdueTotal += price;
+        }
+    });
+
+    const mrrEl = document.getElementById('dashMrrTotal');
+    const overdueEl = document.getElementById('dashOverdueTotal');
+
+    if (mrrEl) mrrEl.textContent = `R$ ${mrrTotal.toFixed(2).replace('.', ',')}`;
+    if (overdueEl) overdueEl.textContent = `R$ ${overdueTotal.toFixed(2).replace('.', ',')}`;
 }
