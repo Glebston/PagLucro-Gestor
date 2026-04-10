@@ -13,15 +13,35 @@ import { handleLogin, handleLogout, handleForgotPassword } from '../auth.js'; //
  */
 export function initializeAuthListeners(UI) {
     
-    // Listener do formulário de login
-    UI.DOM.loginForm.addEventListener('submit', (e) => { 
-        e.preventDefault(); 
-        handleLogin(UI.DOM.loginEmail.value, UI.DOM.loginPassword.value); 
+    // [CORREÇÃO SPA] Delegação Global para Eventos de Autenticação
+    // ----------------------------------------------------------------
+
+    // 1. Delegação para Envios de Formulário (Submit)
+    document.addEventListener('submit', (e) => {
+        // Intercepta o login
+        const loginForm = e.target.closest('#loginForm');
+        if (loginForm) {
+            e.preventDefault();
+            const emailInput = document.getElementById('loginEmail');
+            const passInput = document.getElementById('loginPassword');
+            if (emailInput && passInput) {
+                handleLogin(emailInput.value, passInput.value);
+            }
+        }
     });
 
-    // Listener do botão "Esqueci minha senha"
-    UI.DOM.forgotPasswordBtn.addEventListener('click', handleForgotPassword);
+    // 2. Delegação para Cliques (Esqueci a Senha e Logout)
+    document.addEventListener('click', (e) => {
+        // Esqueci minha senha
+        if (e.target.closest('#forgotPasswordBtn')) {
+            e.preventDefault(); // Evita recarregamento caso seja um <a>
+            handleForgotPassword();
+        }
 
-    // Listener do botão de logout
-    UI.DOM.logoutBtn.addEventListener('click', handleLogout);
+        // Sair do Sistema (Logout)
+        if (e.target.closest('#logoutBtn') || e.target.closest('#blockedLogoutBtn')) {
+            e.preventDefault(); // Evita recarregamento caso seja um <a>
+            handleLogout();
+        }
+    });
 }
