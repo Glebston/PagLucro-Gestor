@@ -3,28 +3,40 @@
 // MÓDULO PREMIUM: SERVIÇO DE COMUNICAÇÃO COM A IA (O Mensageiro)
 // ========================================================
 
-import { auth } from '../firebaseConfig.js';
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
-
 /**
  * Envia o texto bruto para a Cloud Function segura no backend.
- * O Firebase cuida de anexar o Token JWT do usuário para garantir a segurança.
- * * @param {string} rawText - O texto copiado do WhatsApp pelo cliente.
+ * Atualizado para se conectar com a nova infraestrutura 'preenchimentoTurbo'.
+ * @param {string} rawText - O texto copiado do WhatsApp pelo cliente.
  * @returns {Promise<Object>} - O JSON estruturado com os dados lidos pela IA.
  */
 export async function processTextWithAI(rawText) {
-    // Captura a instância principal do Firebase App através da autenticação
-    const functions = getFunctions(auth.app); 
-
     try {
-        // Cria a "ponte de conexão" apontando para o nome exato da função que criaremos na nuvem
-        const parseOrderTextCallable = httpsCallable(functions, 'parseOrderText');
+        // 1. A URL exata da sua nova função de produção (usando o ID do seu projeto do log)
+        const functionUrl = 'https://us-central1-saas-57e0d.cloudfunctions.net/preenchimentoTurbo';
 
-        // Dispara a requisição de forma segura
-        const result = await parseOrderTextCallable({ text: rawText });
+        // 2. Monta a carga (payload) exatamente como testamos no terminal e a IA exige
+        const payload = {
+            prompt: rawText,
+            configDocumentPath: "admin_settings/ai_config"
+        };
 
-        // O retorno do nosso backend sempre ficará encapsulado dentro do objeto 'data'
-        return result.data;
+        // 3. Faz a requisição padrão com o CORS já liberado pelo backend
+        const response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        // 4. Verifica se o servidor retornou algum erro
+        if (!response.ok) {
+            throw new Error(`Erro na nuvem: Status ${response.status}`);
+        }
+
+        // 5. Converte a resposta e entrega o JSON para a sua interface
+        const data = await response.json();
+        return data;
 
     } catch (error) {
         console.error("🔥 Erro na ponte segura com a Cloud Function:", error);
