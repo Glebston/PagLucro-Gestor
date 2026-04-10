@@ -4,12 +4,13 @@
 // Responsabilidade: Transformar dados JSON em HTML visual (Cards)
 // ========================================================
 
-const DOM = {
+// [PROTEÇÃO SPA] Helper para buscar elementos em tempo real
+const getDOM = () => ({
     list: document.getElementById('catalogList'),
     countDisplay: document.getElementById('catalogCountDisplay'),
     activeDisplay: document.getElementById('activeCountDisplay'),
     publicLink: document.getElementById('publicStoreLink')
-};
+});
 
 /**
  * Renderiza a grade de produtos e atualiza os contadores
@@ -18,17 +19,20 @@ const DOM = {
  */
 export function renderCatalogUI(data, companyId) {
     const { items, totalCount, activeCount } = data;
+    const currentDOM = getDOM(); // Busca a tela fresca
 
-    // 1. Atualiza Contadores e Link
-    updateStats(totalCount, activeCount);
-    updatePublicLink(companyId, activeCount);
+    // 1. Atualiza Contadores e Link (Protegido contra null)
+    updateStats(totalCount, activeCount, currentDOM);
+    updatePublicLink(companyId, activeCount, currentDOM);
+
+    if (!currentDOM.list) return; // Escudo ativado
 
     // 2. Limpa a lista atual
-    DOM.list.innerHTML = '';
+    currentDOM.list.innerHTML = '';
 
     // 3. Estado Vazio (Nenhum produto cadastrado)
     if (items.length === 0) {
-        DOM.list.innerHTML = `
+        currentDOM.list.innerHTML = `
             <div class="col-span-full flex flex-col items-center justify-center py-16 text-gray-400 bg-white rounded-xl border border-dashed border-gray-300">
                 <div class="bg-gray-50 p-4 rounded-full mb-3">
                     <svg class="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
@@ -42,37 +46,43 @@ export function renderCatalogUI(data, companyId) {
 
     // 4. Renderiza os Cards
     const htmlBuffer = items.map(item => createCardHTML(item)).join('');
-    DOM.list.innerHTML = htmlBuffer;
+    currentDOM.list.innerHTML = htmlBuffer;
 }
 
 // --- FUNÇÕES AUXILIARES (PRIVADAS) ---
 
-function updateStats(total, active) {
-    // Contador de Armazenamento (Total)
-    DOM.countDisplay.textContent = `${total}/30`;
-    if (total >= 30) {
-        DOM.countDisplay.className = "text-lg font-bold text-red-600"; // Alerta visual
-    } else {
-        DOM.countDisplay.className = "text-lg font-bold text-blue-600";
+function updateStats(total, active, currentDOM) {
+    if (currentDOM.countDisplay) {
+        // Contador de Armazenamento (Total)
+        currentDOM.countDisplay.textContent = `${total}/30`;
+        if (total >= 30) {
+            currentDOM.countDisplay.className = "text-lg font-bold text-red-600"; // Alerta visual
+        } else {
+            currentDOM.countDisplay.className = "text-sm text-blue-600";
+        }
     }
 
-    // Contador de Vitrine (Ativos)
-    DOM.activeDisplay.textContent = `${active}/20`;
-    if (active >= 20) {
-        DOM.activeDisplay.className = "text-lg font-bold text-orange-500"; // Alerta visual
-    } else {
-        DOM.activeDisplay.className = "text-lg font-bold text-green-600";
+    if (currentDOM.activeDisplay) {
+        // Contador de Vitrine (Ativos)
+        currentDOM.activeDisplay.textContent = `${active}/20`;
+        if (active >= 20) {
+            currentDOM.activeDisplay.className = "text-lg font-bold text-orange-500"; // Alerta visual
+        } else {
+            currentDOM.activeDisplay.className = "text-sm text-green-600";
+        }
     }
 }
 
-function updatePublicLink(companyId, activeCount) {
+function updatePublicLink(companyId, activeCount, currentDOM) {
+    if (!currentDOM.publicLink) return;
+
     // Só mostra o link se tiver pelo menos 1 item ativo
     if (activeCount > 0) {
         const link = `catalogo.html?uid=${companyId}`;
-        DOM.publicLink.href = link;
-        DOM.publicLink.classList.remove('hidden');
+        currentDOM.publicLink.href = link;
+        currentDOM.publicLink.classList.remove('hidden');
     } else {
-        DOM.publicLink.classList.add('hidden');
+        currentDOM.publicLink.classList.add('hidden');
     }
 }
 
