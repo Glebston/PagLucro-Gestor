@@ -1,0 +1,64 @@
+<div id="catalogModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 backdrop-blur-sm flex items-center justify-center p-4 z-[80] hidden modal-enter">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
+        <div class="p-5 border-b bg-gray-50 flex justify-between items-center shrink-0">
+            <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">📦 Detalhes do Produto</h3>
+            <button id="closeCatalogModalBtn" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        </div>
+        
+        <form id="catalogForm" class="p-6 space-y-5 overflow-y-auto custom-scrollbar">
+            <input type="hidden" id="catalogItemId">
+
+            <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center relative hover:bg-gray-50 transition group cursor-pointer" onclick="document.getElementById('catalogImageInput').click()">
+                <input type="file" id="catalogImageInput" accept="image/*" class="hidden">
+                <img id="catalogImagePreview" class="h-48 w-full object-contain mx-auto hidden rounded">
+                
+                <div id="catalogImagePlaceholder">
+                    <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <p class="text-sm font-medium text-gray-600">Clique para adicionar foto</p>
+                    <p class="text-xs text-gray-400">Recomendado: Formato quadrado ou retrato</p>
+                </div>
+
+                <div id="catalogUploadLoader" class="absolute inset-0 bg-white/90 flex flex-col items-center justify-center hidden z-10">
+                    <svg class="animate-spin h-8 w-8 text-blue-600 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <span class="text-xs font-bold text-blue-600">Enviando para ImgBB...</span>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Título do Modelo</label>
+                <input type="text" id="catalogTitle" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition" placeholder="Ex: Camisa Social Slim" required>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Categoria</label>
+                    <input type="text" id="catalogCategory" list="categoryOptions" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition" placeholder="Ex: Escolar">
+                    <datalist id="categoryOptions">
+                        <option value="Escolar">
+                        <option value="Esportivo">
+                        <option value="Comercial">
+                        <option value="Carnaval">
+                        <option value="Universitário">
+                    </datalist>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Preço (Texto Livre)</label>
+                    <input type="text" id="catalogPrice" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition" placeholder="Ex: A partir de R$ 45,00">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição Comercial</label>
+                <textarea id="catalogDescription" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none resize-none transition" placeholder="Ex: Tecido Dry-Fit, proteção UV 50+, ideal para prática de esportes..."></textarea>
+            </div>
+
+        </form>
+
+        <div class="p-5 border-t bg-gray-50 flex justify-end gap-3 shrink-0">
+            <button type="button" id="cancelCatalogBtn" class="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition">Cancelar</button>
+            <button type="button" id="saveCatalogBtn" class="px-6 py-2.5 rounded-lg bg-purple-600 text-white font-bold hover:bg-purple-700 shadow-md transform active:scale-95 transition">Salvar Produto</button>
+        </div>
+    </div>
+</div>
