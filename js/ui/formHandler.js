@@ -7,6 +7,21 @@
 
 import { DOM } from './dom.js';
 import { updateSourceSelectionUI } from './helpers.js';
+import { 
+    partTemplateHTML, 
+    comumPartContentTemplateHTML, 
+    specificSizeRowTemplateHTML, 
+    detalhadoPartContentTemplateHTML, 
+    financialRowTemplateHTML 
+} from './templates.js';
+import { initializeRadar, checkCapacityWarning } from './deliveryRadar.js';
+
+// Utilitário interno para converter a string HTML em um DocumentFragment (idêntico ao comportamento antigo)
+const getFragment = (htmlString) => {
+    const template = document.createElement('template');
+    template.innerHTML = htmlString;
+    return template.content.cloneNode(true);
+};
 
 // Estado local para gerenciar a lista de pagamentos antes de salvar
 let currentPaymentsList = [];
@@ -133,6 +148,46 @@ export const updateFinancials = () => {
         const itemSubtotal = quantity * price;
         item.querySelector('.financial-subtotal').textContent = `R$ ${itemSubtotal.toFixed(2)}`;
         subtotal += itemSubtotal;
+
+        // --- INÍCIO: ZONA 3 (Cérebro do Raio-X em Tempo Real) ---
+        const partId = item.dataset.partId;
+        const partElement = document.querySelector(`.part-item[data-part-id="${partId}"]`);
+        const raioXPanel = item.querySelector('.raio-x-panel');
+        
+        if (partElement && partElement._outsourcedCosts && partElement._outsourcedCosts.length > 0) {
+            // Soma todo o custo terceirizado unitário desta peça
+            const unitOutsourcedCost = partElement._outsourcedCosts.reduce((acc, c) => acc + (parseFloat(c.unitCost) || 0), 0);
+            
+            // 🧮 NOVOS CÁLCULOS COM BASE NA QUANTIDADE
+            const totalOutsourcedCost = unitOutsourcedCost * quantity;
+            const totalSobra = itemSubtotal - totalOutsourcedCost; // itemSubtotal já é (price * quantity)
+            
+            // Exibe o painel
+            raioXPanel.classList.remove('hidden');
+            
+            // Atualiza os 3 valores na tela
+            if (item.querySelector('.raio-x-subtotal')) {
+                item.querySelector('.raio-x-subtotal').textContent = `R$ ${itemSubtotal.toFixed(2)}`;
+            }
+            item.querySelector('.raio-x-cost').textContent = `R$ ${totalOutsourcedCost.toFixed(2)}`;
+            
+            const profitElement = item.querySelector('.raio-x-profit');
+            profitElement.textContent = `Sobra Fábrica Total: R$ ${totalSobra.toFixed(2)}`;
+            
+            // Proteção Visual Inteligente (Avaliando a sobra total)
+            if (price > 0 && totalSobra <= 0) {
+                // Alerta Vermelho: Prejuízo ou Empate
+                profitElement.className = 'font-bold px-2 py-1 rounded raio-x-profit bg-red-100 text-red-700 border border-red-300';
+            } else if (price > 0 && totalSobra > 0) {
+                // Alerta Verde: Lucro
+                profitElement.className = 'font-bold px-2 py-1 rounded raio-x-profit bg-green-100 text-green-700 border border-green-200';
+            } else {
+                profitElement.className = 'font-bold px-2 py-1 rounded raio-x-profit bg-gray-200 text-gray-500';
+            }
+        } else if (raioXPanel) {
+            raioXPanel.classList.add('hidden');
+        }
+        // --- FIM: ZONA 3 ---
     });
 
     const discount = parseFloat(DOM.discount.value) || 0;
@@ -169,7 +224,7 @@ export const updateFinancials = () => {
 };
 
 const createFinancialRow = (partId, name, quantity, priceGroup) => {
-    const finTpl = document.getElementById('financialRowTemplate').content.cloneNode(true);
+    const finTpl = getFragment(financialRowTemplateHTML);
     const finItem = finTpl.querySelector('.financial-item');
     finItem.dataset.partId = partId;
     finItem.dataset.priceGroup = priceGroup;
@@ -180,6 +235,17 @@ const createFinancialRow = (partId, name, quantity, priceGroup) => {
 
     finItem.querySelector('.financial-quantity').value = quantity;
     finItem.querySelector('.financial-price').addEventListener('input', updateFinancials);
+
+    // --- INÍCIO: ZONA 2 (Painel do Raio-X Invisível) ---
+    const raioXHtml = `
+        <div class="col-span-12 hidden raio-x-panel mt-1 p-2.5 rounded text-xs border bg-gray-50 flex flex-wrap justify-between items-center transition-all shadow-inner gap-2">
+            <span class="font-medium text-gray-700">Valor Total: <b class="raio-x-subtotal">R$ 0,00</b></span>
+            <span class="font-medium text-gray-600">Custo Terceirizado Total: <b class="raio-x-cost text-red-500">R$ 0,00</b></span>
+            <span class="font-bold px-2 py-1 rounded raio-x-profit">Sobra Fábrica Total: R$ 0,00</span>
+        </div>
+    `;
+    finItem.insertAdjacentHTML('beforeend', raioXHtml);
+    // --- FIM: ZONA 2 ---
 
     return finItem;
 };
@@ -245,7 +311,7 @@ const addContentToPart = (partItem, partData = {}) => {
     });
 
     if (partType === 'comum') {
-        const comumTpl = document.getElementById('comumPartContentTemplate').content.cloneNode(true);
+        const comumTpl = getFragment(comumPartContentTemplateHTML);
         const sizesGrid = comumTpl.querySelector('.sizes-grid');
         sizesGrid.className = 'sizes-grid hidden mt-3 space-y-4';
 
@@ -275,7 +341,7 @@ const addContentToPart = (partItem, partData = {}) => {
         
         const specificList = comumTpl.querySelector('.specific-sizes-list');
         const addSpecificRow = (spec = {}) => {
-            const specTpl = document.getElementById('specificSizeRowTemplate').content.cloneNode(true);
+            const specTpl = getFragment(specificSizeRowTemplateHTML);
             specTpl.querySelector('.item-spec-width').value = spec.width || '';
             specTpl.querySelector('.item-spec-height').value = spec.height || '';
             specTpl.querySelector('.item-spec-obs').value = spec.observation || '';
@@ -298,7 +364,7 @@ const addContentToPart = (partItem, partData = {}) => {
         contentContainer.appendChild(comumTpl);
 
     } else { 
-        const detalhadoTpl = document.getElementById('detalhadoPartContentTemplate').content.cloneNode(true);
+        const detalhadoTpl = getFragment(detalhadoPartContentTemplateHTML);
         const listContainer = detalhadoTpl.querySelector('.detailed-items-list');
         const gridContainer = detalhadoTpl.querySelector('.detailed-sizes-grid-container');
         
@@ -439,7 +505,7 @@ const addContentToPart = (partItem, partData = {}) => {
 };
 
 export const addPart = (partData = {}, partCounter) => {
-    const partTpl = document.getElementById('partTemplate').content.cloneNode(true);
+    const partTpl = getFragment(partTemplateHTML);
     const partItem = partTpl.querySelector('.part-item');
     partItem.dataset.partId = partCounter;
     partItem.dataset.partType = partData.partInputType || 'comum';
@@ -452,14 +518,202 @@ export const addPart = (partData = {}, partCounter) => {
     partTypeInput.addEventListener('input', renderFinancialSection);
     
     addContentToPart(partItem, partData);
+
+    // --- INÍCIO: ZONA 1 e 4 (Gestor de Terceirizados + Bloqueio Premium) ---
+    partItem._outsourcedCosts = partData.outsourcedCosts ? [...partData.outsourcedCosts] : [];
+    
+    // Verifica o plano salvo no sistema (no código legado, 'pro' representa o plano Premium)
+    const userPlan = localStorage.getItem('userPlan') || 'essencial';
+    const isPremium = userPlan === 'pro';
+
+    if (isPremium) {
+        // 🟢 MODO PREMIUM: Totalmente Funcional
+        const terceirizadosHtml = `
+            <div class="mt-4 border-t pt-3 border-gray-200">
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="text-xs font-bold text-purple-700 uppercase flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.381z" clip-rule="evenodd" /></svg>
+                        Custo Terceirizado (Por Peça)
+                    </h4>
+                </div>
+                <div class="flex gap-2 mb-2">
+                    <input type="text" class="out-desc p-1 border rounded text-xs flex-1 bg-white" placeholder="Ex: Bordado Logo">
+                    <div class="relative w-24">
+                        <span class="absolute left-1 top-1 text-gray-400 text-xs">R$</span>
+                        <input type="number" step="0.01" class="out-cost p-1 pl-6 border rounded text-xs w-full bg-white" placeholder="0.00">
+                    </div>
+                    <button type="button" class="btn-add-out bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 rounded font-bold text-lg leading-none transition-colors">+</button>
+                </div>
+                <div class="out-list space-y-1"></div>
+            </div>
+        `;
+        partItem.insertAdjacentHTML('beforeend', terceirizadosHtml);
+        
+        const renderOutsourcedList = () => {
+            const listContainer = partItem.querySelector('.out-list');
+            listContainer.innerHTML = '';
+            partItem._outsourcedCosts.forEach((cost, index) => {
+                const row = document.createElement('div');
+                row.className = 'flex justify-between items-center bg-purple-50 px-2 py-1 rounded border border-purple-100 text-xs mt-1 shadow-sm';
+                row.innerHTML = `
+                    <span class="text-gray-700 font-medium">${cost.description}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-purple-700">R$ ${parseFloat(cost.unitCost).toFixed(2)}</span>
+                        <button type="button" class="text-red-400 hover:text-red-600 font-bold px-1" data-index="${index}">&times;</button>
+                    </div>
+                `;
+                row.querySelector('button').addEventListener('click', () => {
+                    partItem._outsourcedCosts.splice(index, 1);
+                    renderOutsourcedList();
+                    updateFinancials(); 
+                });
+                listContainer.appendChild(row);
+            });
+        };
+
+        partItem.querySelector('.btn-add-out').addEventListener('click', () => {
+            const descInput = partItem.querySelector('.out-desc');
+            const costInput = partItem.querySelector('.out-cost');
+            const desc = descInput.value.trim();
+            const cost = parseFloat(costInput.value);
+            
+            if (desc && cost > 0) {
+                partItem._outsourcedCosts.push({ description: desc, unitCost: cost });
+                descInput.value = '';
+                costInput.value = '';
+                renderOutsourcedList();
+                updateFinancials(); 
+            }
+        });
+        
+        renderOutsourcedList();
+
+    } else {
+        // 🔴 MODO BLOQUEADO: Gatilho de Upsell (Plano Básico)
+        const upsellHtml = `
+            <div class="mt-4 border-t pt-3 border-gray-200 opacity-70 group relative">
+                <div class="absolute inset-0 z-10 flex items-center justify-center cursor-not-allowed" title="Funcionalidade exclusiva do Plano Premium"></div>
+                <div class="flex justify-between items-center mb-2 filter grayscale">
+                    <h4 class="text-xs font-bold text-gray-500 uppercase flex items-center gap-1">
+                        <svg class="w-3 h-3 text-yellow-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z"/></svg>
+                        Custo Terceirizado (Premium)
+                    </h4>
+                </div>
+                <div class="flex gap-2 mb-2 pointer-events-none filter grayscale">
+                    <input type="text" class="p-1 border rounded text-xs flex-1 bg-gray-50 text-gray-400" placeholder="Ex: Bordado Logo" disabled>
+                    <div class="relative w-24">
+                        <span class="absolute left-1 top-1 text-gray-400 text-xs">R$</span>
+                        <input type="number" class="p-1 pl-6 border rounded text-xs w-full bg-gray-50" placeholder="0.00" disabled>
+                    </div>
+                    <button type="button" class="bg-gray-200 text-gray-400 px-3 rounded font-bold text-lg leading-none" disabled>+</button>
+                </div>
+            </div>
+        `;
+        partItem.insertAdjacentHTML('beforeend', upsellHtml);
+    }
+    // --- FIM: ZONA 1 e 4 ---
     DOM.partsContainer.appendChild(partItem);
     
     renderFinancialSection();
     
+    // --- INÍCIO: ZONA 5 (Inteligência do Mockup Individual) ---
+    const dropzone = partItem.querySelector('.mockup-dropzone');
+    const previewImg = partItem.querySelector('.mockup-preview');
+    const removeMockupBtn = partItem.querySelector('.remove-mockup-btn');
+    const dropzoneContent = partItem.querySelector('.dropzone-content');
+
+    // 1. Inicializa a memória da imagem (fica nulo por padrão)
+    partItem._mockupFile = null;
+
+    if (dropzone) {
+        // Função interna para processar o arquivo recebido (Drag ou Paste)
+        const processMockupFile = (file) => {
+            if (!file || !file.type.startsWith('image/')) {
+                alert('Formato inválido. Por favor, insira apenas imagens.');
+                return;
+            }
+            
+            partItem._mockupFile = file; // Salva o arquivo real para envio futuro ao ImgBB
+
+            // Usa FileReader para mostrar a miniatura imediatamente
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImg.src = e.target.result;
+                previewImg.classList.remove('hidden');
+                removeMockupBtn.classList.remove('hidden');
+                dropzoneContent.classList.add('hidden');
+                dropzone.classList.remove('border-dashed', 'border-gray-300');
+                dropzone.classList.add('border-solid', 'border-blue-400');
+            };
+            reader.readAsDataURL(file);
+        };
+
+        // 2. Prepara para o Modo Edição (se a peça já vier do banco com arte salva)
+        if (partData.mockupPeca) {
+            previewImg.src = partData.mockupPeca;
+            previewImg.classList.remove('hidden');
+            removeMockupBtn.classList.remove('hidden');
+            dropzoneContent.classList.add('hidden');
+            dropzone.classList.remove('border-dashed', 'border-gray-300');
+            dropzone.classList.add('border-solid', 'border-blue-400');
+        }
+
+        // 3. Listeners de Drag & Drop
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('bg-blue-50', 'border-blue-400');
+        });
+
+        dropzone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('bg-blue-50', 'border-blue-400');
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('bg-blue-50', 'border-blue-400');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                processMockupFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        // 4. Listener para Colar (Ctrl+V) - Requer clicar na área antes
+        dropzone.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const clipboardItems = e.clipboardData.items;
+            let imageFile = null;
+            for (let i = 0; i < clipboardItems.length; i++) {
+                if (clipboardItems[i].type.indexOf('image') !== -1) {
+                    imageFile = clipboardItems[i].getAsFile();
+                    break;
+                }
+            }
+            if (imageFile) processMockupFile(imageFile);
+        });
+
+        // 5. Botão de Remover a Arte
+        removeMockupBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Evita conflitos
+            partItem._mockupFile = null; // Apaga da memória
+            
+            // Se tinha imagem do banco, apaga a referência para enviar atualização limpa
+            if (partData.mockupPeca) partData.mockupPeca = null; 
+
+            previewImg.src = '';
+            previewImg.classList.add('hidden');
+            removeMockupBtn.classList.add('hidden');
+            dropzoneContent.classList.remove('hidden');
+            dropzone.classList.remove('border-solid', 'border-blue-400');
+            dropzone.classList.add('border-dashed', 'border-gray-300');
+        });
+    }
+    // --- FIM: ZONA 5 ---
+
     partItem.querySelector('.remove-part-btn').addEventListener('click', () => {
         partItem.remove();
         renderFinancialSection();
     });
+    
     partItem.querySelectorAll('.part-type-selector').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const newType = e.target.dataset.type;
@@ -478,6 +732,13 @@ export const resetForm = () => {
     DOM.financialsContainer.innerHTML = '';
     DOM.existingFilesContainer.innerHTML = '';
     DOM.orderDate.value = new Date().toISOString().split('T')[0];
+    // --- INÍCIO: ZONA DO RADAR DE PRODUÇÃO ---
+    const capacityWarning = document.getElementById('capacityWarning');
+    if (capacityWarning) capacityWarning.classList.add('hidden');
+    const radarBadge = document.getElementById('radarBadge');
+    if (radarBadge) radarBadge.classList.add('opacity-0');
+    // --- FIM: ZONA DO RADAR DE PRODUÇÃO ---
+
     
     setPaymentList([]); // Limpa a lista de pagamentos
     
@@ -554,3 +815,97 @@ export const populateFormForEdit = (orderData, currentPartCounter) => {
     DOM.orderModal.classList.remove('hidden');
     return currentPartCounter;
 };
+
+// ==========================================
+// RECEPTOR MAGNÉTICO: INTELIGÊNCIA ARTIFICIAL
+// ==========================================
+window.addEventListener('injetarPecasIA', (e) => {
+    console.log("🔔 [formHandler] Pacote IA recebido! Iniciando protocolo de injeção...");
+    const dadosIA = e.detail;
+
+    // Função inteligente de Polling (Espera Ativa)
+    const tentarInjetar = (tentativas) => {
+        // Se a tela ainda não existe, ele não aborta, ele aguarda e tenta de novo!
+        if (!DOM || !DOM.partsContainer) {
+            if (tentativas > 0) {
+                console.warn(`⏳ [formHandler] Modal ainda carregando... Tentando novamente. (Restam ${tentativas} tentativas)`);
+                setTimeout(() => tentarInjetar(tentativas - 1), 150);
+            } else {
+                console.error("❌ [formHandler] Falha crítica: O modal Novo Pedido não renderizou a tempo.");
+            }
+            return;
+        }
+
+        console.log(`✅ [formHandler] Tela pronta! Injetando ${dadosIA.length} peças estruturadas...`);
+        
+        // Limpa a tela (remove a peça genérica que o botão Novo Pedido cria por padrão)
+        DOM.partsContainer.innerHTML = '';
+        DOM.financialsContainer.innerHTML = '';
+
+        // Dicionário de pesos para forçar a ordenação visual idêntica à grade do sistema
+        const sizeWeights = {
+            'PP (Baby Look)': 100, 'P (Baby Look)': 101, 'M (Baby Look)': 102, 'G (Baby Look)': 103, 'GG (Baby Look)': 104, 'XG (Baby Look)': 105,
+            'PP (Normal)': 200, 'P (Normal)': 201, 'M (Normal)': 202, 'G (Normal)': 203, 'GG (Normal)': 204, 'XG (Normal)': 205,
+            '2 anos (Infantil)': 300, '4 anos (Infantil)': 301, '6 anos (Infantil)': 302, '8 anos (Infantil)': 303, '10 anos (Infantil)': 304, '12 anos (Infantil)': 305
+        };
+        
+        if (Array.isArray(dadosIA)) {
+            dadosIA.forEach((pecaIA, index) => {
+                // Se for grade detalhada, aplica a ordenação baseada nos pesos antes de injetar
+                let detalhesOrdenados = pecaIA.details || [];
+                if (pecaIA.partInputType === 'detalhado' && detalhesOrdenados.length > 0) {
+                    detalhesOrdenados.sort((a, b) => {
+                        const pesoA = sizeWeights[a.size] || 999; // Se a IA inventar tamanho, vai pro final
+                        const pesoB = sizeWeights[b.size] || 999;
+                        return pesoA - pesoB;
+                    });
+                }
+
+                const partData = {
+                    type: pecaIA.type || 'Camisa (IA)',
+                    material: pecaIA.material || '',
+                    partInputType: pecaIA.partInputType === 'comum' ? 'comum' : 'detalhado',
+                    sizes: pecaIA.sizes || {},
+                    details: detalhesOrdenados
+                };
+                
+                // Aciona a fábrica de cards para cada peça processada e organizada
+                addPart(partData, index + 1);
+            });
+        }
+    };
+    // Inicia a operação com 10 tentativas de fôlego (até 1.5 segundos de margem de segurança)
+    tentarInjetar(10);
+});
+
+// ==========================================
+// RECEPTOR MAGNÉTICO: RADAR DE PRODUÇÃO
+// ==========================================
+// Delegação de eventos para garantir que funcione mesmo com HTML injetado dinamicamente
+document.addEventListener('click', (e) => {
+    // Verifica se o clique foi no botão do radar ou em algum ícone dentro dele
+    if (e.target.closest('#radarBtn')) {
+        initializeRadar();
+    }
+});
+
+document.addEventListener('change', (e) => {
+    // Verifica se a mudança foi no input de data de entrega
+    if (e.target && e.target.id === 'deliveryDate') {
+        checkCapacityWarning(e.target.value);
+    }
+});
+
+// ==========================================
+// FIX DE NAVEGAÇÃO: BOTÃO X (Fechar Modal)
+// ==========================================
+document.addEventListener('click', (e) => {
+    // Se o usuário clicar no botão X
+    if (e.target.closest('#closeOrderModalX')) {
+        const orderModal = document.getElementById('orderModal');
+        if (orderModal) {
+            // Esconde a tela de pedido imediatamente
+            orderModal.classList.add('hidden');
+        }
+    }
+});
