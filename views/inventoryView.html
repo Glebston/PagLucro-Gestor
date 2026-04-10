@@ -1,0 +1,39 @@
+<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6 animate-fade-in">
+    
+    <div class="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50">
+        <div>
+            <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                📦 Controle de Estoque
+            </h2>
+            <p class="text-sm text-gray-500 mt-1">Gerencie os insumos e matérias-primas da fábrica</p>
+        </div>
+        
+        <button id="addInventoryItemBtn" class="admin-only-element bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-sm transition flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+            </svg>
+            Novo Insumo
+        </button>
+    </div>
+    
+    <div class="p-0 overflow-x-auto">
+        <table class="w-full text-left border-collapse min-w-[600px]">
+            <thead>
+                <tr class="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider border-b">
+                    <th class="p-4 font-semibold">Insumo</th>
+                    <th class="p-4 font-semibold text-center">Em Estoque</th>
+                    <th class="p-4 font-semibold text-center">Movimentação Rápida</th>
+                    <th class="p-4 font-semibold text-right admin-only-element">Gerenciar</th>
+                </tr>
+            </thead>
+            <tbody id="inventoryTableBody" class="divide-y divide-gray-100">
+                <tr>
+                    <td colspan="4" class="p-8 text-center text-gray-400">
+                        <svg class="animate-spin h-8 w-8 mx-auto mb-2 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        Sincronizando prateleiras...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
