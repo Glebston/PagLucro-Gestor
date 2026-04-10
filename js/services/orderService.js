@@ -1,10 +1,10 @@
 // js/services/orderService.js
-// ==========================================================
-// MÓDULO ORDER SERVICE (v5.28.0 - CENTRALIZED CALCULATION)
-// ==========================================================
+// ===================================================================================
+// MÓDULO ORDER SERVICE (v5.29.0 - Com FUNÇÕES EXCLUSIVAS DE PRODUÇÃO CHÃO DE FÁBRICA
+// ==================================================================================
 
 import { collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import { db } from '../firebaseConfig.js';
+import { db, auth } from '../firebaseConfig.js';
 // Importação da Nova Calculadora Central
 import { calculateOrderTotals } from '../financialCalculator.js';
 
@@ -138,3 +138,114 @@ export const cleanupOrderService = () => {
     allOrders = [];
     dbCollection = null;
 };
+
+// ==========================================================
+// FUNÇÕES EXCLUSIVAS DE PRODUÇÃO (CHÃO DE FÁBRICA)
+// ==========================================================
+
+export const updateOrderStatusOnly = async (orderId, newStatus) => {
+    if (!orderId || !dbCollection) return;
+    
+    const orderRef = doc(dbCollection, orderId);
+    const updatePayload = { orderStatus: newStatus };
+
+    try {
+        console.log(`[TENTATIVA] Atualizando pedido ${orderId} para: ${newStatus}`);
+        await updateDoc(orderRef, updatePayload);
+        console.log(`[SUCESSO] Pedido atualizado no Firestore!`);
+    } catch (error) {
+        console.error(`[FALHA FIREBASE] O Firestore bloqueou a ação!`);
+        console.error(`Código do Erro:`, error.code);
+        console.error(`Mensagem:`, error.message);
+    }
+};
+
+// [FASE 2: EVOLUÇÃO SAAS] Atualização Fracionada com Gatilho Inteligente
+export const updateProductionItemStatus = async (orderId, partIndex, newStatus) => {
+    console.log(`[MOTOR INICIADO] Pedido: ${orderId} | Index: ${partIndex} | Nova Etapa: ${newStatus}`);
+
+    if (!orderId || partIndex === null) {
+        console.error(`[ERRO] Faltam ID do pedido ou Index da peça!`);
+        return;
+    }
+
+    try {
+        // [A CURA DA AMNÉSIA] O Cirurgião descobre a rota sozinho lendo o crachá!
+        const currentUser = auth.currentUser;
+        if (!currentUser) throw new Error("Usuário deslogado.");
+
+        let companyId = currentUser.uid; 
+        
+        if (window.USER_ROLE === 'production') {
+            const mappingRef = doc(db, "user_mappings", currentUser.uid);
+            const mappingSnap = await getDoc(mappingRef);
+            if (mappingSnap.exists()) {
+                companyId = mappingSnap.data().companyId;
+            } else {
+                throw new Error("Crachá de produção não encontrado no banco.");
+            }
+        }
+
+        // [NOVO: A BÚSSOLA SAAS] Busca a configuração da empresa para descobrir qual é a última etapa
+        const companyRef = doc(db, `companies/${companyId}`);
+        const companySnap = await getDoc(companyRef);
+        let lastStage = "Finalizado"; // Fallback de emergência
+        if (companySnap.exists() && companySnap.data().etapas_producao) {
+            const stages = companySnap.data().etapas_producao;
+            if (stages.length > 0) {
+                lastStage = stages[stages.length - 1]; // Pega exatamente a última coluna configurada
+            }
+        }
+
+        // Constrói a rota exata e absoluta do pedido
+        const orderRef = doc(db, `companies/${companyId}/orders/${orderId}`);
+        const orderSnap = await getDoc(orderRef);
+        if (!orderSnap.exists()) throw new Error("Pedido não encontrado no banco.");
+
+        const orderData = orderSnap.data();
+        let parts = orderData.parts || [];
+
+        // Atualiza estritamente a peça mexida
+        if (parts[partIndex]) {
+            parts[partIndex].status_producao = newStatus;
+        }
+
+        let updatePayload = { parts: parts };
+        
+        const currentStatus = orderData.orderStatus || "";
+        const preProductionStatuses = ["Pendente", "Em Aberto", "Aguardando Aprovação", "Confirmado", "Alteração Solicitada", "Aprovado pelo Cliente"];
+        
+        // [GATILHO 1: O MARCO ZERO DA LARGADA]
+        if (newStatus !== "Não Iniciado" && preProductionStatuses.includes(currentStatus)) {
+            updatePayload.orderStatus = "Em Produção";
+            console.log(`[GATILHO INICIAL] A peça saiu do Marco Zero! O pedido passará a ser 'Em Produção'`);
+        } else {
+            updatePayload.orderStatus = currentStatus;
+        }
+
+        // [GATILHO 2: A LINHA DE CHEGADA E REVERSÃO DE EMERGÊNCIA]
+        // O algoritmo .every() garante que isso só será "true" se TODAS as peças estiverem na linha de chegada
+        const allPartsFinished = parts.every(p => p.status_producao === lastStage);
+
+        if (allPartsFinished && updatePayload.orderStatus !== "Finalizado" && updatePayload.orderStatus !== "Entregue") {
+            updatePayload.orderStatus = "Finalizado";
+            console.log(`[GATILHO FINAL ATIVADO] Todas as peças cruzaram a linha de chegada ('${lastStage}'). Status mudou para 'Finalizado'!`);
+        } else if (!allPartsFinished && currentStatus === "Finalizado") {
+            // Se alguém puxar uma peça de volta da última coluna, reverte o status geral
+            updatePayload.orderStatus = "Em Produção";
+            console.log(`[GATILHO REVERSO ATIVADO] Peça removida da linha de chegada. Status rebaixado para 'Em Produção'.`);
+        }
+
+        console.log(`[FIREBASE] Enviando pacote de atualização...`, updatePayload);
+        await updateDoc(orderRef, updatePayload);
+        console.log(`[SUCESSO] Operação cirúrgica no Firebase concluída com perfeição!`);
+        
+    } catch (error) {
+        console.error(`[FALHA FIREBASE] Erro ao tentar salvar!`);
+        console.error(`Código:`, error.code);
+        console.error(`Mensagem:`, error.message);
+    }
+};
+
+
+
