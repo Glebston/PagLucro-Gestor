@@ -159,3 +159,80 @@ input[type="file"]::file-selector-button { @apply bg-gray-200 text-gray-800 font
         max-height: calc(100vh - 60px) !important; /* Desconta o cabeçalho */
     }
 }
+
+/* ==========================================================================
+   MIGRAÇÃO DO INDEX.HTML (Limpeza da Superfície)
+   ========================================================================== */
+/* === A CORREÇÃO TÉCNICA (v5.7.57) ======= */
+#authContainer.hidden {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+}
+
+#app.hidden {
+    display: none !important;
+}
+
+.z-\[60\] { z-index: 60 !important; }
+.z-\[70\] { z-index: 70 !important; }
+.z-\[80\] { z-index: 80 !important; }
+.z-\[100\] { z-index: 100 !important; }
+.z-\[200\] { z-index: 200 !important; } /* Camada Suprema para Bloqueios */
+
+.modal-enter { animation: modalFadeIn 0.2s ease-out forwards; }
+@keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+.toast-enter { animation: toastSlideIn 0.3s ease-out forwards; }
+@keyframes toastSlideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Estilo do Toggle Switch para o Admin */
+.toggle-checkbox:checked {
+    right: 0;
+    border-color: #ef4444;
+}
+.toggle-checkbox:checked + .toggle-label {
+    background-color: #ef4444;
+}
+
+/* ==========================================
+   ESTRATÉGIA 2: KANBAN SCROLLBAR "SEMPRE VIVA"
+   Força a exibição da barra no Mac/Chrome com design Slim
+   ========================================== */
+
+/* Mire especificamente no container do Kanban. 
+   Substitua #ordersContainer pelo ID exato da div onde as colunas rolam, se for diferente. */
+#ordersContainer::-webkit-scrollbar {
+    height: 8px; /* Slim (Fininha) */
+    width: 8px; /* Para rolagem vertical, se houver */
+    display: block !important; /* Força aparecer sempre */
+    -webkit-appearance: none;
+}
+
+#ordersContainer::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05); /* Fundo quase transparente, elegante */
+    border-radius: 10px;
+}
+
+#ordersContainer::-webkit-scrollbar-thumb {
+    background-color: rgba(59, 130, 246, 0.5); /* Cor Azul Suave do Tailwind (blue-500 opacity 50%) */
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    transition: background-color 0.2s ease;
+}
+
+/* Fica mais escura quando o usuário passa o mouse por cima */
+#ordersContainer::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(59, 130, 246, 0.8);
+}
+
+/* Utilitário auxiliar para o JS alterar o cursor durante o drag */
+.cursor-grabbing * {
+    cursor: grabbing !important;
+    cursor: -webkit-grabbing !important;
+    user-select: none !important; /* MÁGICA: Impede o texto de ficar azul */
+    -webkit-user-select: none !important; /* Para navegadores baseados no Safari/Mac */
+}
