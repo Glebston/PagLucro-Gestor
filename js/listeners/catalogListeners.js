@@ -1,7 +1,6 @@
 // js/listeners/catalogListeners.js
 // ========================================================
-// OUVINTES DO CATÁLOGO (v2.5 - LIVE UPDATE)
-// Responsabilidade: Interface, Links e Sincronização de Status em Tempo Real
+// OUVINTES DO CATÁLOGO (SPA SEGURO COM FILTRO DE NULL)
 // ========================================================
 
 import { auth } from "../firebaseConfig.js";
@@ -16,46 +15,43 @@ import {
     getRealCompanyId 
 } from "../services/catalogService.js";
 
-const DOM = {
-    // Navegação
-    menuBtn: document.getElementById('catalogDashboardBtn'),
-    catalogView: document.getElementById('catalogDashboard'),
-    ordersView: document.getElementById('ordersDashboard'),
-    financeView: document.getElementById('financeDashboard'),
-    searchContainer: document.getElementById('searchContainer'),
-    financeMenuBtn: document.getElementById('financeDashboardBtn'),
+let DOM = {};
+let tempImageUrl = ""; 
+let catalogListenersAttached = false;
 
-    // Modal e Forms
-    modal: document.getElementById('catalogModal'),
-    form: document.getElementById('catalogForm'),
-    saveBtn: document.getElementById('saveCatalogBtn'),
-    cancelBtn: document.getElementById('cancelCatalogBtn'),
-    closeXBtn: document.getElementById('closeCatalogModalBtn'),
-    openModalBtn: document.getElementById('addCatalogItemBtn'),
-
-    // Inputs do Form
-    itemId: document.getElementById('catalogItemId'),
-    title: document.getElementById('catalogTitle'),
-    category: document.getElementById('catalogCategory'),
-    price: document.getElementById('catalogPrice'),
-    description: document.getElementById('catalogDescription'),
-    imageInput: document.getElementById('catalogImageInput'),
-    imagePreview: document.getElementById('catalogImagePreview'),
-    imagePlaceholder: document.getElementById('catalogImagePlaceholder'),
-    uploadLoader: document.getElementById('catalogUploadLoader'),
-
-    // Interface Principal
-    list: document.getElementById('catalogList'), 
-    storeLinkInput: document.getElementById('storeLinkInput'),
-    copyLinkBtn: document.getElementById('copyLinkBtn'),
-    publicStoreBtn: document.getElementById('publicStoreLink')
+const refreshDOMReferences = () => {
+    DOM = {
+        menuBtn: document.getElementById('catalogDashboardBtn'),
+        financeMenuBtn: document.getElementById('financeDashboardBtn'),
+        modal: document.getElementById('catalogModal'),
+        form: document.getElementById('catalogForm'),
+        saveBtn: document.getElementById('saveCatalogBtn'),
+        cancelBtn: document.getElementById('cancelCatalogBtn'),
+        closeXBtn: document.getElementById('closeCatalogModalBtn'),
+        itemId: document.getElementById('catalogItemId'),
+        title: document.getElementById('catalogTitle'),
+        category: document.getElementById('catalogCategory'),
+        price: document.getElementById('catalogPrice'),
+        description: document.getElementById('catalogDescription'),
+        imageInput: document.getElementById('catalogImageInput'),
+        imagePreview: document.getElementById('catalogImagePreview'),
+        imagePlaceholder: document.getElementById('catalogImagePlaceholder'),
+        uploadLoader: document.getElementById('catalogUploadLoader')
+    };
 };
 
-let tempImageUrl = ""; 
+const attachCatalogModalListenersOnce = () => {
+    if (catalogListenersAttached) return;
+    if (DOM.cancelBtn) DOM.cancelBtn.addEventListener('click', closeModal);
+    if (DOM.closeXBtn) DOM.closeXBtn.addEventListener('click', closeModal);
+    if (DOM.imageInput) DOM.imageInput.addEventListener('change', handleImageSelect);
+    if (DOM.saveBtn) DOM.saveBtn.addEventListener('click', handleSave);
+    catalogListenersAttached = true;
+}; 
 
 export function initCatalogListeners() {
-    
-    // 1. Botão do Menu
+    refreshDOMReferences();
+
     if (DOM.menuBtn) {
         DOM.menuBtn.classList.remove('hidden');
         DOM.menuBtn.addEventListener('click', async (e) => {
@@ -64,72 +60,74 @@ export function initCatalogListeners() {
         });
     }
 
-    // 2. Correção do "Fantasma"
     if (DOM.financeMenuBtn) {
         DOM.financeMenuBtn.addEventListener('click', () => {
-            if(DOM.catalogView) DOM.catalogView.classList.add('hidden');
+            const catView = document.getElementById('catalogDashboard');
+            if(catView) catView.classList.add('hidden');
         });
     }
 
-    // 3. Botão Voltar
-    document.addEventListener('click', (e) => {
+    // DELEGAÇÃO GLOBAL SPA
+    document.addEventListener('click', async (e) => {
         if (e.target.closest('#exitCatalogBtn') || e.target.id === 'backToOrdersBtn') {
             e.preventDefault();
-            closeCatalogDashboard();
+            window.location.reload(); // Recarregamento seguro para voltar aos Pedidos
+        }
+        
+        if (e.target.closest('#copyLinkBtn')) {
+            copyStoreLink();
+        }
+        
+        if (e.target.closest('#publicStoreLink')) {
+            e.preventDefault(); 
+            await handleOpenStoreSafe(); 
+        }
+
+        if (e.target.closest('#addCatalogItemBtn')) {
+            try {
+                const { ensureCatalogModalLoaded } = await import(`../ui/modalHandler.js`);
+                await ensureCatalogModalLoaded();
+                refreshDOMReferences(); 
+                attachCatalogModalListenersOnce();
+                openModal();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        if (e.target.closest('#catalogList')) {
+            handleListActions(e);
         }
     });
 
-    // 4. Copiar Link
-    if (DOM.copyLinkBtn) {
-        DOM.copyLinkBtn.addEventListener('click', copyStoreLink);
-    }
-
-    // 5. Botão "Ver Loja" (Clique Seguro)
-    if (DOM.publicStoreBtn) {
-        DOM.publicStoreBtn.addEventListener('click', async (e) => {
-            e.preventDefault(); 
-            await handleOpenStoreSafe(); 
-        });
-    }
-
-    // 6. Modal e Edição
-    if (DOM.openModalBtn) DOM.openModalBtn.addEventListener('click', () => openModal());
-    if (DOM.cancelBtn) DOM.cancelBtn.addEventListener('click', closeModal);
-    if (DOM.closeXBtn) DOM.closeXBtn.addEventListener('click', closeModal);
-    if (DOM.imageInput) DOM.imageInput.addEventListener('change', handleImageSelect);
-    if (DOM.saveBtn) DOM.saveBtn.addEventListener('click', handleSave);
-    
-    // 7. Ações na Lista (Delegate)
-    if (DOM.list) {
-        DOM.list.addEventListener('click', handleListActions);
-        DOM.list.addEventListener('change', handleListChanges);
-    }
+    document.addEventListener('change', (e) => {
+        if (e.target.closest('#catalogList')) {
+            handleListChanges(e);
+        }
+    });
 }
 
-// --- ABERTURA SEGURA DA LOJA ---
 async function handleOpenStoreSafe() {
-    const originalText = DOM.publicStoreBtn.innerHTML;
+    const publicStoreBtn = document.getElementById('publicStoreLink');
+    const originalText = publicStoreBtn ? publicStoreBtn.innerHTML : '';
     
     try {
-        DOM.publicStoreBtn.innerHTML = `<svg class="animate-spin h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+        if(publicStoreBtn) publicStoreBtn.innerHTML = `<svg class="animate-spin h-4 w-4 text-blue-600" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
         
         let realId = await getRealCompanyId();
         const user = auth.currentUser;
 
-        if (!realId || realId === 'null' || realId === 'undefined') {
+        // [CORREÇÃO CRÍTICA] Impede que a string literal 'null' passe
+        if (!realId || String(realId) === 'null' || String(realId) === 'undefined') {
             realId = user ? user.uid : null;
         }
 
         if (!realId) {
-            alert("Erro: Não foi possível identificar sua conta. Tente recarregar a página.");
+            alert("Erro: Não foi possível identificar sua conta. Recarregue a página.");
             return;
         }
 
-        const baseUrl = window.location.origin + window.location.pathname
-            .replace('index.html', '')
-            .replace('dashboard', '') 
-            + 'catalogo.html';
-        
+        const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '').replace('dashboard', '') + 'catalogo.html';
         const fullUrl = `${baseUrl}?uid=${realId}`;
         window.open(fullUrl, '_blank');
 
@@ -137,50 +135,52 @@ async function handleOpenStoreSafe() {
         console.error("Erro ao abrir loja:", error);
         alert("Erro ao abrir loja: " + error.message);
     } finally {
-        DOM.publicStoreBtn.innerHTML = originalText;
+        if(publicStoreBtn) publicStoreBtn.innerHTML = originalText;
     }
 }
 
-// --- NAVEGAÇÃO E CARREGAMENTO ---
-
 async function openCatalogDashboard() {
-    if(DOM.ordersView) DOM.ordersView.classList.add('hidden');
-    if(DOM.financeView) DOM.financeView.classList.add('hidden');
-    if(DOM.searchContainer) DOM.searchContainer.classList.add('hidden');
-    
-    DOM.catalogView.classList.remove('hidden');
-    document.getElementById('userDropdown')?.classList.add('hidden');
+    const container = document.getElementById('mainViewContainer');
+    if (!container) return;
 
-    if (DOM.publicStoreBtn) DOM.publicStoreBtn.classList.remove('hidden');
+    const userDropdown = document.getElementById('userDropdown');
+    if (userDropdown) userDropdown.classList.add('hidden');
+
+    container.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-20 text-gray-400">
+            <svg class="animate-spin h-10 w-10 mb-4 text-purple-500" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <p>Construindo Catálogo Premium...</p>
+        </div>`;
 
     try {
+        const response = await fetch(`views/catalogView.html?v=${Date.now()}`);
+        if (!response.ok) throw new Error('Falha ao carregar a tela do catálogo');
+        container.innerHTML = await response.text();
+
+        refreshDOMReferences();
+
         let realId = await getRealCompanyId();
-        if (!realId) {
-             const user = auth.currentUser;
+        const user = auth.currentUser;
+        
+        // [CORREÇÃO CRÍTICA] Tratamento anti-null para o Input de Link
+        if (!realId || String(realId) === 'null' || String(realId) === 'undefined') {
              realId = user ? user.uid : '';
         }
 
-        const baseUrl = window.location.origin + window.location.pathname
-            .replace('index.html', '')
-            .replace('dashboard', '') 
-            + 'catalogo.html';
+        const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '').replace('dashboard', '') + 'catalogo.html';
         
-        if (DOM.storeLinkInput) {
-            DOM.storeLinkInput.value = `${baseUrl}?uid=${realId}`;
-        }
+        const storeLinkInput = document.getElementById('storeLinkInput');
+        if (storeLinkInput) storeLinkInput.value = `${baseUrl}?uid=${realId}`;
+
+        const publicStoreBtn = document.getElementById('publicStoreLink');
+        if (publicStoreBtn) publicStoreBtn.classList.remove('hidden');
 
         await loadCatalogData();
 
     } catch (error) {
         console.error("Erro fatal:", error);
-        if(DOM.list) DOM.list.innerHTML = `<p class="text-red-500 text-center p-4">Erro ao carregar: ${error.message}</p>`;
+        container.innerHTML = `<p class="text-red-500 text-center p-4">Erro ao carregar: ${error.message}</p>`;
     }
-}
-
-function closeCatalogDashboard() {
-    DOM.catalogView.classList.add('hidden');
-    if(DOM.ordersView) DOM.ordersView.classList.remove('hidden');
-    if(DOM.searchContainer) DOM.searchContainer.classList.remove('hidden');
 }
 
 async function loadCatalogData() {
@@ -189,23 +189,25 @@ async function loadCatalogData() {
         renderCatalogUI(data, null); 
     } catch (error) {
         console.error(error);
-        if(DOM.list) DOM.list.innerHTML = `<p class="text-center text-gray-500 py-10">Não foi possível carregar os produtos.</p>`;
+        const list = document.getElementById('catalogList');
+        if(list) list.innerHTML = `<p class="text-center text-gray-500 py-10">Não foi possível carregar os produtos.</p>`;
     }
 }
 
-// --- MANIPULAÇÃO DO LINK ---
-
 function copyStoreLink() {
-    if(!DOM.storeLinkInput) return;
-    DOM.storeLinkInput.select();
+    const storeLinkInput = document.getElementById('storeLinkInput');
+    const copyLinkBtn = document.getElementById('copyLinkBtn');
+    if(!storeLinkInput) return;
+    
+    storeLinkInput.select();
     document.execCommand('copy');
     
-    const originalText = DOM.copyLinkBtn.innerHTML;
-    DOM.copyLinkBtn.innerHTML = `<span class="text-green-600 font-bold">Copiado!</span>`;
-    setTimeout(() => DOM.copyLinkBtn.innerHTML = originalText, 2000);
+    if(copyLinkBtn) {
+        const originalText = copyLinkBtn.innerHTML;
+        copyLinkBtn.innerHTML = `<span class="text-green-600 font-bold">Copiado!</span>`;
+        setTimeout(() => copyLinkBtn.innerHTML = originalText, 2000);
+    }
 }
-
-// --- MODAL ---
 
 function openModal(item = null) {
     DOM.modal.classList.remove('hidden');
@@ -240,12 +242,9 @@ function closeModal() {
     DOM.modal.classList.add('hidden');
 }
 
-// --- UPLOAD E SAVE ---
-
 async function handleImageSelect(e) {
     const file = e.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (ev) => {
         if(DOM.imagePreview) {
@@ -259,7 +258,6 @@ async function handleImageSelect(e) {
 
 async function handleSave(e) {
     e.preventDefault();
-    
     const title = DOM.title.value.trim();
     if (!title) return alert("O título é obrigatório.");
 
@@ -275,10 +273,7 @@ async function handleSave(e) {
 
     try {
         let finalImageUrl = tempImageUrl;
-        
-        if (file) {
-            finalImageUrl = await uploadCatalogImage(file);
-        }
+        if (file) finalImageUrl = await uploadCatalogImage(file);
 
         const itemData = {
             title: title,
@@ -306,8 +301,6 @@ async function handleSave(e) {
     }
 }
 
-// --- LISTA ---
-
 async function handleListActions(e) {
     const btn = e.target.closest('button');
     if (!btn) return;
@@ -329,6 +322,11 @@ async function handleListActions(e) {
 
     if (action === 'editItem') {
         try {
+            const { ensureCatalogModalLoaded } = await import(`../ui/modalHandler.js`);
+            await ensureCatalogModalLoaded();
+            refreshDOMReferences();
+            attachCatalogModalListenersOnce();
+
             const data = await getCatalogItems(); 
             const item = data.items.find(i => i.id === id);
             if (item) openModal(item);
@@ -338,24 +336,17 @@ async function handleListActions(e) {
     }
 }
 
-// [CORREÇÃO] Função Atualizada para Redesenhar a Tela ao Mudar Status
 async function handleListChanges(e) {
     const toggle = e.target;
     if (toggle.type === 'checkbox' && toggle.dataset.action === 'toggleStatus') {
         const id = toggle.dataset.id;
         const newStatus = toggle.checked;
-
         try {
-            // 1. Atualiza no Banco de Dados
             await toggleItemStatus(id, newStatus);
-            
-            // 2. Recarrega os dados para atualizar os Contadores e o Rótulo (Rascunho/Vitrine)
             await loadCatalogData();
-
         } catch (error) {
-            console.error(error);
             alert("Erro: " + error.message);
-            toggle.checked = !newStatus; // Reverte visualmente em caso de erro
+            toggle.checked = !newStatus; 
         }
     }
 }
