@@ -11,7 +11,7 @@ export const SIZES_ORDER = [
     '2 anos', '4 anos', '6 anos', '8 anos', '10 anos', '12 anos'
 ];
 
-// Centraliza todos os seletores de elementos do DOM
+// Centraliza todos os seletores estáticos da "Casca" (SPA Shell)
 export const DOM = {
     // --- Autenticação ---
     authContainer: document.getElementById('authContainer'),
@@ -25,7 +25,7 @@ export const DOM = {
     sendResetEmailBtn: document.getElementById('sendResetEmailBtn'),
     cancelResetBtn: document.getElementById('cancelResetBtn'),
 
-    // --- Layout Base ---
+    // --- Layout Base (Casca SPA) ---
     app: document.getElementById('app'),
     mainContent: document.getElementById('mainContent'),
     userEmail: document.getElementById('userEmail'),
@@ -35,53 +35,15 @@ export const DOM = {
     cookieBanner: document.getElementById('cookieBanner'),
     cookieAcceptBtn: document.getElementById('cookieAcceptBtn'),
     
-    // --- Navegação e Dashboards ---
-    ordersDashboard: document.getElementById('ordersDashboard'),
-    financeDashboard: document.getElementById('financeDashboard'),
+    // --- Header e Navegação Fixa ---
     financeDashboardBtn: document.getElementById('financeDashboardBtn'),
     toggleViewBtn: document.getElementById('toggleViewBtn'),
     priceTableBtn: document.getElementById('priceTableBtn'),
     backupBtn: document.getElementById('backupBtn'),
     restoreFileInput: document.getElementById('restoreFile'),
-    
-    // --- Dashboard de Pedidos ---
-    ordersList: document.getElementById('ordersList'),
-    loadingIndicator: document.getElementById('loadingIndicator'),
     addOrderBtn: document.getElementById('addOrderBtn'),
 
-    // --- Modal de Pedido ---
-    orderModal: document.getElementById('orderModal'),
-    orderForm: document.getElementById('orderForm'),
-    modalTitle: document.getElementById('modalTitle'),
-    orderId: document.getElementById('orderId'),
-    clientName: document.getElementById('clientName'),
-    clientPhone: document.getElementById('clientPhone'),
-    orderStatus: document.getElementById('orderStatus'),
-    orderDate: document.getElementById('orderDate'),
-    deliveryDate: document.getElementById('deliveryDate'),
-    mockupFiles: document.getElementById('mockupFiles'),
-    existingFilesContainer: document.getElementById('existingFilesContainer'),
-    partsContainer: document.getElementById('partsContainer'),
-    addPartBtn: document.getElementById('addPartBtn'),
-    generalObservation: document.getElementById('generalObservation'),
-    financialsContainer: document.getElementById('financialsContainer'),
-    
-    // Fechamento Financeiro do Pedido
-    downPayment: document.getElementById('downPayment'),
-    downPaymentDate: document.getElementById('downPaymentDate'),
-    downPaymentSourceContainer: document.getElementById('downPaymentSourceContainer'),
-    // Seletores específicos para radio buttons requerem querySelector
-    downPaymentStatusPago: document.querySelector('input[name="downPaymentStatus"][value="pago"]'),
-    downPaymentStatusAReceber: document.querySelector('input[name="downPaymentStatus"][value="a_receber"]'),
-    discount: document.getElementById('discount'),
-    grandTotal: document.getElementById('grandTotal'),
-    remainingTotal: document.getElementById('remainingTotal'),
-    
-    cancelBtn: document.getElementById('cancelBtn'),
-    saveBtn: document.getElementById('saveBtn'),
-    uploadIndicator: document.getElementById('uploadIndicator'),
-
-    // --- Modais Auxiliares ---
+    // --- Modais Auxiliares e Globais (Mantidos no index.html) ---
     viewModal: document.getElementById('viewModal'),
     infoModal: document.getElementById('infoModal'),
     infoModalMessage: document.getElementById('infoModalMessage'),
@@ -116,35 +78,12 @@ export const DOM = {
     cancelPriceTableBtn: document.getElementById('cancelPriceTableBtn'),
     closePriceTableBtn: document.getElementById('closePriceTableBtn'),
 
-    // --- Dashboard Financeiro (KPIs e Filtros) ---
-    periodFilter: document.getElementById('periodFilter'),
-    customPeriodContainer: document.getElementById('customPeriodContainer'),
-    startDateInput: document.getElementById('startDateInput'),
-    endDateInput: document.getElementById('endDateInput'),
-    copyReportBtn: document.getElementById('copyReportBtn'),
-    faturamentoBruto: document.getElementById('faturamentoBruto'),
-    despesasTotais: document.getElementById('despesasTotais'),
-    contasAReceber: document.getElementById('contasAReceber'),
-    lucroLiquido: document.getElementById('lucroLiquido'),
-    saldoEmConta: document.getElementById('saldoEmConta'),
-    saldoEmCaixa: document.getElementById('saldoEmCaixa'),
-    adjustBalanceBtn: document.getElementById('adjustBalanceBtn'),
-    
-    // --- Ajuste de Saldo Inicial ---
+    // --- Modais Financeiros Globais (Mantidos no index.html) ---
     initialBalanceModal: document.getElementById('initialBalanceModal'),
     initialBalanceInput: document.getElementById('initialBalanceInput'),
     saveBalanceBtn: document.getElementById('saveBalanceBtn'),
     cancelBalanceBtn: document.getElementById('cancelBalanceBtn'),
 
-    // --- Lista de Transações ---
-    addIncomeBtn: document.getElementById('addIncomeBtn'),
-    addExpenseBtn: document.getElementById('addExpenseBtn'),
-    transactionSearchInput: document.getElementById('transactionSearchInput'),
-    transactionsList: document.getElementById('transactionsList'),
-    topExpensesByCategory: document.getElementById('topExpensesByCategory'),
-    topIncomesByCategory: document.getElementById('topIncomesByCategory'),
-
-    // --- Modal de Transação (CORREÇÃO v5.8.2) ---
     transactionModal: document.getElementById('transactionModal'),
     transactionModalTitle: document.getElementById('transactionModalTitle'),
     transactionForm: document.getElementById('transactionForm'),
@@ -156,13 +95,10 @@ export const DOM = {
     transactionAmount: document.getElementById('transactionAmount'),
     transactionType: document.getElementById('transactionType'),
     cancelTransactionBtn: document.getElementById('cancelTransactionBtn'),
-    
-    // Campos adicionados na v5.8.1
     transactionStatusContainer: document.getElementById('transactionStatusContainer'),
     pago: document.querySelector('input[name="transactionStatus"][value="pago"]'),
     a_receber: document.querySelector('input[name="transactionStatus"][value="a_receber"]'),
 
-    // --- Modal de Quitação (Ponte) ---
     settlementModal: document.getElementById('settlementModal'),
     settlementOrderId: document.getElementById('settlementOrderId'),
     settlementAmountDisplay: document.getElementById('settlementAmountDisplay'),
@@ -176,8 +112,8 @@ export const DOM = {
     backupNowBtn: document.getElementById('backupNowBtn'),
     dismissBackupReminderBtn: document.getElementById('dismissBackupReminderBtn'),
 
-   // --- Ações Rápidas (FAB) ---
-    fabContainer: document.getElementById('fabContainer'),
-    fabBtn: document.getElementById('fabMainBtn'),     // ID corrigido conforme index.html
-    fabMenu: document.getElementById('fabMenu'),       // ID corrigido conforme index.html
+    // --- Ações Rápidas (FAB) ---
+    fabBackdrop: document.getElementById('fabBackdrop'), 
+    fabBtn: document.getElementById('fabMainBtn'),     
+    fabMenu: document.getElementById('fabMenu'),       
 };
