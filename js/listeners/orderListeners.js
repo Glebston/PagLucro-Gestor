@@ -370,7 +370,9 @@ export function initializeOrderListeners(UI, deps) {
 
                 const idsInNewList = newPaymentList.map(p => p.id).filter(id => id);
                 for (const existing of existingTransactions) {
-                    if (existing.category !== 'Quitação de Pedido' && !idsInNewList.includes(existing.id)) {
+                    // [CORREÇÃO SÊNIOR] Removemos a trava da Quitação.
+                    // Agora, qualquer lançamento removido da telinha do modal será apagado do Financeiro.
+                    if (!idsInNewList.includes(existing.id)) {
                         await services.deleteTransaction(existing.id);
                     }
                 }
@@ -564,7 +566,10 @@ export function initializeOrderListeners(UI, deps) {
             let { partCounter } = getState();
             partCounter = 0;
             const transactions = services.getTransactionsByOrderId ? services.getTransactionsByOrderId(id) : [];
-            const downPayments = transactions.filter(t => t.category === 'Adiantamento de Pedido');
+            
+            // [CORREÇÃO SÊNIOR] Puxa tanto os Adiantamentos quanto as Quitações antigas para a tela de edição!
+            const downPayments = transactions.filter(t => t.category === 'Adiantamento de Pedido' || t.category === 'Quitação de Pedido');
+            
             partCounter = UI.populateFormForEdit(order, partCounter);
             if (UI.setPaymentList) {
                 UI.setPaymentList(downPayments);
@@ -621,6 +626,36 @@ export function initializeOrderListeners(UI, deps) {
             UI.viewOrder(order, targetPartIndex);
             UI.showViewModal();
             
+        // [CORREÇÃO SÊNIOR] Erro de digitação 'pdatedOrderData' corrigido para 'updatedOrderData'
+} else if (btn.classList.contains('reopen-btn') && order) {
+    const confirmed = await UI.showConfirmModal(
+        "Deseja reabrir este pedido?\n\nEle voltará para o painel de produção. Os lançamentos financeiros realizados serão mantidos.",
+        "Sim, Reabrir",
+        "Cancelar"
+    );
+
+    if (confirmed) {
+        try {
+            const updatedOrderData = { ...order, id: id };
+            updatedOrderData.orderStatus = 'Pendente';
+            updatedOrderData.reopened = true; // Marca o DNA de reabertura
+
+            await services.saveOrder(updatedOrderData, id); // Variável corrigida aqui!
+            
+            const searchInput = document.getElementById('globalSearchInput');
+            if (searchInput && searchInput.value) {
+                searchInput.dispatchEvent(new Event('input'));
+            } else {
+                const toggleViewBtn = document.getElementById('toggleViewBtn');
+                if (toggleViewBtn) toggleViewBtn.click();
+            }
+            
+            UI.showInfoModal("Pedido reaberto! Verifique a aba de Pendentes.");
+        } catch (error) {
+            console.error("Erro ao reabrir pedido:", error);
+            UI.showInfoModal("Erro ao reabrir o pedido.");
+        }
+    }
         } else if (btn.classList.contains('settle-and-deliver-btn') && order) {
             try {
                 let totalValue = 0;
