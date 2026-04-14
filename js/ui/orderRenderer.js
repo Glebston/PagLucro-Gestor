@@ -171,8 +171,17 @@ export const generateOrderCardHTML = (order, viewType, partIndex = null) => {
         
         // [CIRURGIA 1] Blindagem da etiqueta: Se não tiver status, assume 'Pendente'
         badgeStatus = order.orderStatus || 'Pendente'; 
+
+        // [NOVO] Sinalizador de Pedido Reaberto
+        let reopenedBadge = '';
+        if (order.reopened) {
+            reopenedBadge = `<span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black bg-orange-100 text-orange-700 border border-orange-200 animate-pulse">🔄 REABERTO</span>`;
+        }
         
-        // [CIRURGIA 2] Matemática limpa do Resta Pagar (apenas visual, sem tocar no banco)
+        // Injetamos a etiqueta logo após o título ou status
+        cardTitle = `<div class="flex items-center flex-wrap gap-1">${cardTitle}${reopenedBadge}</div>`;
+        
+        // [CIRURGIA 2] Matemática limpa do Resta Pagar
         const downPayment = parseFloat(order.downPayment) || 0;
         const remaining = totalValue - downPayment;
         
@@ -189,9 +198,17 @@ export const generateOrderCardHTML = (order, viewType, partIndex = null) => {
                 ${remainingHtml}
             </div>`;
         
-        buttonsHtml = viewType === 'pending' ?
-            `<button data-id="${order.id}" class="edit-btn p-2 rounded-md text-gray-500 hover:bg-yellow-100 hover:text-yellow-700 transition-colors" title="Editar"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg></button>` :
-            `<button data-id="${order.id}" class="replicate-btn p-2 rounded-md text-gray-500 hover:bg-green-100 hover:text-green-700 transition-colors" title="Replicar"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M5 3a2 2 0 00-2 2v6a1 1 0 102 0V5h6a1 1 0 100-2H5z" /></svg></button>`;
+        // [NOVO] Lógica expandida para incluir o botão de Reabrir no painel de Entregues
+        if (viewType === 'pending') {
+            buttonsHtml = `<button data-id="${order.id}" class="edit-btn p-2 rounded-md text-gray-500 hover:bg-yellow-100 hover:text-yellow-700 transition-colors" title="Editar"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg></button>`;
+        } else {
+            buttonsHtml = `<button data-id="${order.id}" class="replicate-btn p-2 rounded-md text-gray-500 hover:bg-green-100 hover:text-green-700 transition-colors" title="Replicar"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M5 3a2 2 0 00-2 2v6a1 1 0 102 0V5h6a1 1 0 100-2H5z" /></svg></button>`;
+            
+            // Só exibe no painel Gestor (bloqueia na Produção)
+            if (!isProduction) {
+                buttonsHtml += `<button data-id="${order.id}" class="reopen-btn p-2 rounded-md text-gray-500 hover:bg-orange-100 hover:text-orange-700 transition-colors" title="Reabrir Pedido"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg></button>`;
+            }
+        }
     }
     
     const detailsBtnText = isProduction ? 'Detalhes da Arte' : 'Detalhes do pedido';
