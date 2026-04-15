@@ -77,34 +77,44 @@ export function initializeNavigationListeners(UI, deps) {
     
         // ==========================================
         // ESTRATÉGIA 1: KANBAN DRAG-TO-SCROLL (Modo Tecla ALT)
-        // Solução UX Profissional sem conflito de texto
+        // Solução UX Profissional sem conflito de texto (Radar Dinâmico)
         // ==========================================
         const initKanbanDragScroll = () => {
-            // Ouvimos direto do documento, pois o Kanban é destruído e recriado via rotas SPA
             document.addEventListener('mousedown', (e) => {
-                if (!e.altKey) return; // Se não estiver segurando ALT, não faz nada (deixa copiar texto)
+                // Se não estiver segurando ALT, o mouse fica 100% livre para copiar texto
+                if (!e.altKey) return; 
 
-                // Encontra a lista exata gerada pelo orderRenderer.js
-                const slider = document.getElementById('ordersList');
+                // 1. Tenta achar os suspeitos usuais
+                let slider = e.target.closest('.kanban-board') || e.target.closest('#ordersList') || e.target.closest('.overflow-x-auto');
                 
-                // Só arrasta se o elemento existir e for realmente um quadro de arrasto horizontal
-                if (!slider || !slider.classList.contains('overflow-x-auto')) return;
+                // 2. Se não achar os nomes, usa a física: sobe no HTML até achar quem tem barra de rolagem
+                if (!slider) {
+                    let node = e.target;
+                    while (node && node !== document.body) {
+                        if (node.scrollWidth > node.clientWidth) {
+                            slider = node;
+                            break;
+                        }
+                        node = node.parentElement;
+                    }
+                }
 
-                e.preventDefault(); // Bloqueia texto/D&D nativo
-                
-                console.log("Alvo do Kanban Capturado! Iniciando rolagem..."); // Feedback visual no console
+                // Se não achou absolutamente nada rolável, aborta
+                if (!slider) return;
+
+                // Achou o alvo! Bloqueia o D&D nativo e inicia o nosso
+                e.preventDefault(); 
+                console.log("Radar encontrou o Kanban! Iniciando rolagem...", slider);
 
                 slider.classList.add('cursor-grabbing');
                 
-                // Captura a posição inicial
                 const startX = e.pageX - slider.offsetLeft;
                 const startScrollLeft = slider.scrollLeft;
 
-                // Cria funções temporárias para seguir o mouse sem sujar a memória global
                 const mouseMoveHandler = (moveEvent) => {
                     moveEvent.preventDefault();
                     const x = moveEvent.pageX - slider.offsetLeft;
-                    const walk = (x - startX) * 2; // Velocidade do arrasto (2x mais fluida)
+                    const walk = (x - startX) * 1.5; // Ajuste a velocidade aqui se quiser
                     slider.scrollLeft = startScrollLeft - walk;
                 };
 
@@ -114,14 +124,14 @@ export function initializeNavigationListeners(UI, deps) {
                     document.removeEventListener('mouseup', mouseUpHandler);
                 };
 
-                // Ativa os ouvintes temporários de movimento e soltura
                 document.addEventListener('mousemove', mouseMoveHandler);
                 document.addEventListener('mouseup', mouseUpHandler);
             });
         };
 
-        // Inicia a vigilância
+        // Inicia o motor
         initKanbanDragScroll();
+        // ==========================================
         // ==========================================
     
     // Navegação via botão Financeiro
