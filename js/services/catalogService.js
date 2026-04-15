@@ -9,8 +9,8 @@ import {
     query, where, getCountFromServer, getDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// [REFATORAÇÃO] Importando do serviço central de imagens (mesma pasta)
-import { fileToBase64, uploadToImgBB } from './imageService.js';
+// [REFATORAÇÃO] Importando do serviço central de imagens NATIVO (mesma pasta)
+import { uploadImageToStorage } from './imageService.js';
 
 // --- [ALTERAÇÃO] Adicionado 'export' para usar no Listeners ---
 export async function getRealCompanyId() {
@@ -30,16 +30,13 @@ export async function getRealCompanyId() {
     return user.uid;
 }
 
-// --- 1. UPLOAD DE IMAGEM (Delegado para imageService) ---
+// --- 1. UPLOAD DE IMAGEM (Delegado para imageService NATIVO) ---
 export async function uploadCatalogImage(file) {
     try {
-        // 1. Converte o arquivo File para Base64 usando o serviço central
-        const base64 = await fileToBase64(file);
+        // Envia o arquivo físico (File Object) diretamente para o cofre do Firebase
+        const url = await uploadImageToStorage(file);
         
-        // 2. Envia para o ImgBB usando a chave centralizada
-        const url = await uploadToImgBB(base64);
-        
-        if (!url) throw new Error("O serviço de imagem não retornou uma URL válida.");
+        if (!url) throw new Error("O Storage do Google não retornou uma URL válida.");
         
         return url;
     } catch (error) {
