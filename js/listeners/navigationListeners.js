@@ -76,7 +76,7 @@ export function initializeNavigationListeners(UI, deps) {
 
     
         // ==========================================
-        // ESTRATÉGIA 1: KANBAN DRAG-TO-SCROLL (Equilíbrio Perfeito)
+        // ESTRATÉGIA 1: KANBAN DRAG-TO-SCROLL (A Correção Sênior)
         // ==========================================
         const initKanbanDragScroll = () => {
             const mainContainer = document.getElementById('mainViewContainer');
@@ -89,11 +89,9 @@ export function initializeNavigationListeners(UI, deps) {
             let activeSlider = null; 
 
             mainContainer.addEventListener('mousedown', (e) => {
-                // 1. SALVAÇÃO DO DUPLO CLIQUE: Se der 2 ou mais cliques rápidos (para selecionar palavra), o arrasto é cancelado na hora!
-                if (e.detail >= 2) return;
-
-                const ignoredTags = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT', 'A', 'SVG', 'PATH', 'P', 'SPAN', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'STRONG', 'LABEL'];
-                if (ignoredTags.includes(e.target.tagName.toUpperCase())) return;
+                // 1. CORREÇÃO DE ALVO: Ignoramos APENAS botões, inputs e links.
+                // Removemos as travas de texto. Agora você pode clicar em qualquer lugar do cartão!
+                if (e.target.closest('button, input, textarea, select, a')) return;
 
                 let target = e.target;
                 activeSlider = null;
@@ -129,26 +127,25 @@ export function initializeNavigationListeners(UI, deps) {
             mainContainer.addEventListener('mousemove', (e) => {
                 if (!isDown || !activeSlider) return;
                 
-                // 2. RESPEITO AO MOUSE: Se o navegador detectou que você já começou a selecionar um texto, nós paramos o arrasto de tela.
+                // 2. A MÁGICA: Se o navegador notar que você começou a grifar (selecionar) um texto,
+                // nós cancelamos a rolagem imediatamente e deixamos você copiar!
                 if (window.getSelection().toString().length > 0) {
-                    isDown = false; 
+                    isDragging = false; 
                     return;
                 }
 
                 const x = e.pageX - activeSlider.offsetLeft;
-                const distance = Math.abs(x - startX);
+                const walk = x - startX;
 
-                // 3. ATRASO TÁTICO AUMENTADO: Esperamos 10px em vez de 5px. 
-                // Isso dá tempo suficiente para o navegador entender que você quer arrastar uma palavra antes de bloquear a tela.
-                if (!isDragging && distance > 10) {
+                // 3. ATRASO TÁTICO (5 pixels): Moveu um pouquinho sem grifar texto? É rolagem!
+                if (!isDragging && Math.abs(walk) > 5) {
                     isDragging = true;
                     activeSlider.classList.add('cursor-grabbing'); 
                 }
 
                 if (isDragging) {
-                    e.preventDefault(); // Só ativamos o escudo quando temos 100% de certeza que é um arrasto de tela
-                    const walk = (x - startX) * 1.5; 
-                    activeSlider.scrollLeft = startScrollLeft - walk;
+                    e.preventDefault(); 
+                    activeSlider.scrollLeft = startScrollLeft - (walk * 1.5);
                 }
             });
         };
