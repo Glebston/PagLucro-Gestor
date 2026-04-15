@@ -74,25 +74,24 @@ export function initializeNavigationListeners(UI, deps) {
     // Exporta a função para o main.js poder iniciar a primeira tela
     deps.exportRoute(loadRoute);
 
-    // ==========================================
-        // ESTRATÉGIA 1: KANBAN DRAG-TO-SCROLL (Caça ao Scroll)
+    
         // ==========================================
-        // ==========================================
-        // ESTRATÉGIA 1: KANBAN DRAG-TO-SCROLL (Inteligência de Seleção)
+        // ESTRATÉGIA 1: KANBAN DRAG-TO-SCROLL (Equilíbrio Perfeito)
         // ==========================================
         const initKanbanDragScroll = () => {
             const mainContainer = document.getElementById('mainViewContainer');
             if (!mainContainer) return;
 
             let isDown = false;
-            let isDragging = false; // NOVA FLAG: Diferencia um simples clique de um arrasto real
+            let isDragging = false; 
             let startX;
             let startScrollLeft;
             let activeSlider = null; 
 
             mainContainer.addEventListener('mousedown', (e) => {
-                // 1. O FILTRO DE TAGS: Ampliamos o escudo para incluir tags de texto puro.
-                // Se clicar direto no texto, o arrasto é cancelado e a seleção funciona normalmente.
+                // 1. SALVAÇÃO DO DUPLO CLIQUE: Se der 2 ou mais cliques rápidos (para selecionar palavra), o arrasto é cancelado na hora!
+                if (e.detail >= 2) return;
+
                 const ignoredTags = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT', 'A', 'SVG', 'PATH', 'P', 'SPAN', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'STRONG', 'LABEL'];
                 if (ignoredTags.includes(e.target.tagName.toUpperCase())) return;
 
@@ -110,11 +109,9 @@ export function initializeNavigationListeners(UI, deps) {
                 if (!activeSlider) activeSlider = document.querySelector('.overflow-x-auto') || mainContainer;
 
                 isDown = true;
-                isDragging = false; // Resetamos a intenção a cada clique
+                isDragging = false; 
                 startX = e.pageX - activeSlider.offsetLeft;
                 startScrollLeft = activeSlider.scrollLeft;
-                
-                // NOTA: Não colocamos a classe 'cursor-grabbing' aqui ainda. Atraso tático!
             });
 
             mainContainer.addEventListener('mouseleave', () => {
@@ -132,33 +129,29 @@ export function initializeNavigationListeners(UI, deps) {
             mainContainer.addEventListener('mousemove', (e) => {
                 if (!isDown || !activeSlider) return;
                 
-                // 2. O FILTRO DE SELEÇÃO: Se o usuário já conseguiu selecionar algum texto, abortamos a rolagem
-                if (window.getSelection().toString().length > 0) return;
+                // 2. RESPEITO AO MOUSE: Se o navegador detectou que você já começou a selecionar um texto, nós paramos o arrasto de tela.
+                if (window.getSelection().toString().length > 0) {
+                    isDown = false; 
+                    return;
+                }
 
                 const x = e.pageX - activeSlider.offsetLeft;
                 const distance = Math.abs(x - startX);
 
-                // 3. O ATRASO TÁTICO: Só consideramos "arrasto" se o mouse moveu mais de 5 pixels
-                if (distance > 5) {
+                // 3. ATRASO TÁTICO AUMENTADO: Esperamos 10px em vez de 5px. 
+                // Isso dá tempo suficiente para o navegador entender que você quer arrastar uma palavra antes de bloquear a tela.
+                if (!isDragging && distance > 10) {
                     isDragging = true;
-                    activeSlider.classList.add('cursor-grabbing'); // Agora sim ativamos o escudo CSS
-                    e.preventDefault(); 
+                    activeSlider.classList.add('cursor-grabbing'); 
                 }
 
-                // Se confirmou que a intenção é arrastar a tela, executa o movimento
                 if (isDragging) {
+                    e.preventDefault(); // Só ativamos o escudo quando temos 100% de certeza que é um arrasto de tela
                     const walk = (x - startX) * 1.5; 
                     activeSlider.scrollLeft = startScrollLeft - walk;
                 }
             });
         };
-    // Inicia o listener de drag (e garante que reconecte se a view mudar, via evento viewLoaded)
-    initKanbanDragScroll();
-    document.addEventListener('viewLoaded', (e) => {
-        if (e.detail.viewName === 'orders') {
-            setTimeout(initKanbanDragScroll, 100); // Pequeno atraso para garantir que o DOM renderizou
-        }
-    });
     // ==========================================
     
     // Navegação via botão Financeiro
