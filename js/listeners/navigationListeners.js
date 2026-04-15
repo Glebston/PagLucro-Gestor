@@ -130,7 +130,6 @@ export function initializeNavigationListeners(UI, deps) {
         // 🔥 A MÁGICA QUE FALTAVA: Invocar a função!
         initKanbanDragScroll();
         // ==========================================
-    // ==========================================
     
     // Navegação via botão Financeiro
     if (UI.DOM.financeDashboardBtn) {
