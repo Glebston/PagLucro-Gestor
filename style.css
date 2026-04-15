@@ -230,16 +230,11 @@ input[type="file"]::file-selector-button { @apply bg-gray-200 text-gray-800 font
 }
 
 /* ==========================================
-   O ESCUDO NUCLEAR (Drag-to-Scroll)
+   ESTRATÉGIA KANBAN: ARRASTO COM TECLA ALT
    ========================================== */
-.is-dragging-screen {
+.cursor-grabbing {
     cursor: grabbing !important;
     cursor: -webkit-grabbing !important;
-}
-/* Esta é a linha mágica que resolve tudo. Enquanto arrasta, 
-   desliga a interação com todos os filhos da tela, acabando com os conflitos. */
-.is-dragging-screen * {
-    pointer-events: none !important;
-    user-select: none !important;
+    user-select: none !important; /* Só bloqueia o texto quando o ALT estiver pressionado */
     -webkit-user-select: none !important;
 }
