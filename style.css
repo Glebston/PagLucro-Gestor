@@ -230,9 +230,9 @@ input[type="file"]::file-selector-button { @apply bg-gray-200 text-gray-800 font
 }
 
 /* Utilitário auxiliar para o JS alterar o cursor durante o drag */
-.cursor-grabbing * {
+.cursor-grabbing {
     cursor: grabbing !important;
     cursor: -webkit-grabbing !important;
-    user-select: none !important; /* MÁGICA: Impede o texto de ficar azul */
-    -webkit-user-select: none !important; /* Para navegadores baseados no Safari/Mac */
+    user-select: none !important; 
+    -webkit-user-select: none !important; 
 }
