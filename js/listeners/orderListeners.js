@@ -12,10 +12,9 @@ import {
     generateProductionOrderPdf 
 } from '../services/pdfService.js';
 
-// 2. Serviço de Imagens (Upload e Conversão)
+// 2. Serviço de Imagens (Upload Nativo)
 import { 
-    fileToBase64, 
-    uploadToImgBB 
+    uploadImageToStorage 
 } from '../services/imageService.js';
 
 // 3. Ferramentas Administrativas
@@ -78,17 +77,23 @@ function collectFormData(UI) {
     UI.DOM.partsContainer.querySelectorAll('.part-item').forEach(p => {
         const id = p.dataset.partId;
         
-        // --- INÍCIO: ZONA DE CAPTURA (Expandida para Mockup Individual) ---
-        let mockupUrlAtual = null;
-        if (p._uploadedMockupUrl) {
-            mockupUrlAtual = p._uploadedMockupUrl; // Pegou URL nova recém-upada
+        // --- INÍCIO: ZONA DE CAPTURA (Multi-Mockups Nativos) ---
+        let mockupsAtuais = [];
+        
+        if (p._uploadedMockupUrls && p._uploadedMockupUrls.length > 0) {
+            mockupsAtuais = p._uploadedMockupUrls; // Pegou URLs novas recém-upadas no Firebase
         } else {
-            const previewImg = p.querySelector('.mockup-preview');
-            // Se tem imagem aparecendo e o link começa com http (já estava no banco antes)
-            if (previewImg && !previewImg.classList.contains('hidden') && previewImg.src.startsWith('http')) {
-                mockupUrlAtual = previewImg.src;
-            }
+            // Tenta resgatar imagens antigas (ou já salvas) renderizadas no DOM
+            const previewImgs = p.querySelectorAll('.mockup-preview');
+            previewImgs.forEach(img => {
+                if (!img.classList.contains('hidden') && img.src.startsWith('http')) {
+                    mockupsAtuais.push(img.src);
+                }
+            });
         }
+
+        // [LEGADO]: Mantém mockupPeca para não quebrar PDFs antigos, mas a nova fonte da verdade é mockupPecas (array)
+        const urlLegada = mockupsAtuais.length > 0 ? mockupsAtuais[0] : null;
 
         const part = { 
             type: p.querySelector('.part-type').value, 
@@ -102,7 +107,8 @@ function collectFormData(UI) {
             unitPriceSpecific: 0, 
             unitPrice: 0,
             outsourcedCosts: p._outsourcedCosts ? [...p._outsourcedCosts] : [],
-            mockupPeca: mockupUrlAtual // A mágica da URL individual acontece aqui!
+            mockupPeca: urlLegada, // Suporte ao legado (1 imagem)
+            mockupPecas: mockupsAtuais // A nova matriz de múltiplas imagens!
         };
         // --- FIM: ZONA DE CAPTURA ---
         
@@ -334,23 +340,30 @@ export function initializeOrderListeners(UI, deps) {
             UI.DOM.uploadIndicator.classList.remove('hidden');
             
             try {
-                // Upload das imagens globais (Modo Clássico)
+                // Upload das imagens globais (Modo Clássico - Agora Nativo)
                 const files = UI.DOM.mockupFiles.files;
-                const uploadPromises = Array.from(files).map(file => fileToBase64(file).then(uploadToImgBB));
+                const uploadPromises = Array.from(files).map(file => uploadImageToStorage(file));
                 const newUrls = (await Promise.all(uploadPromises)).filter(Boolean);
                 
-                // --- INÍCIO: MISSÃO CRÍTICA (Upload das Peças em Lote) ---
+                // --- INÍCIO: MISSÃO CRÍTICA (Upload Bidimensional Nativo) ---
                 const partsNodes = Array.from(UI.DOM.partsContainer.querySelectorAll('.part-item'));
+                
                 const partUploadPromises = partsNodes.map(async (p) => {
-                    if (p._mockupFile) {
-                        const base64 = await fileToBase64(p._mockupFile);
-                        const url = await uploadToImgBB(base64);
-                        p._uploadedMockupUrl = url; // Guarda o link do ImgBB na memória temporária da peça
-                        return url;
+                    // Se existe o array de arquivos (novo sistema)
+                    if (p._mockupFiles && p._mockupFiles.length > 0) {
+                        // Varre cada imagem dessa peça específica
+                        const internalPromises = p._mockupFiles.map(file => uploadImageToStorage(file));
+                        const urls = await Promise.all(internalPromises);
+                        p._uploadedMockupUrls = urls.filter(Boolean); // Guarda as URLs do Firebase na memória da peça
+                    } 
+                    // Se for legado (edição de pedido antigo com apenas 1 arquivo preso na memória velha)
+                    else if (p._mockupFile) {
+                        const url = await uploadImageToStorage(p._mockupFile);
+                        p._uploadedMockupUrls = url ? [url] : [];
                     }
-                    return null;
                 });
-                await Promise.all(partUploadPromises); // Sobe todas as artes simultaneamente!
+                
+                await Promise.all(partUploadPromises); // Sobe TODAS as peças e TODAS as imagens simultaneamente!
                 // --- FIM: MISSÃO CRÍTICA ---
                 
                 const orderData = collectFormData(UI); 
