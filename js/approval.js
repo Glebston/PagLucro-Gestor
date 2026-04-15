@@ -236,17 +236,32 @@ const renderOrder = (order) => {
 
     DOM.itemsTable.innerHTML = '';
     (order.parts || []).forEach(p => {
-        // --- INÍCIO: ZONA DO MOCKUP INDIVIDUAL NO LINK DO CLIENTE ---
+        // --- INÍCIO: ZONA DO MOCKUP INDIVIDUAL NO LINK DO CLIENTE (Multi-Imagens) ---
         let mockupIndividualHtml = '';
-        if (p.mockupPeca) {
+        
+        // Unifica a nova estrutura (array) com o legado (string isolada)
+        let urlsParaCliente = [];
+        if (p.mockupPecas && p.mockupPecas.length > 0) {
+            urlsParaCliente = p.mockupPecas;
+        } else if (p.mockupPeca) {
+            urlsParaCliente = [p.mockupPeca];
+        }
+
+        if (urlsParaCliente.length > 0) {
+            // Cria os links individuais para cada imagem
+            const imagensHtml = urlsParaCliente.map(url => `
+                <a href="${url}" target="_blank" class="shrink-0 relative group rounded border border-gray-200 shadow-sm overflow-hidden bg-white">
+                    <img src="${url}" class="w-24 h-24 object-cover object-top group-hover:opacity-90 transition-opacity" alt="Arte da Peça">
+                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                        <span class="opacity-0 group-hover:opacity-100 bg-white/90 text-gray-700 text-[10px] px-2 py-0.5 rounded-full shadow font-bold"><i class="fa-solid fa-expand"></i></span>
+                    </div>
+                </a>
+            `).join('');
+
+            // Envelopa tudo em um container de rolagem horizontal nativo do Tailwind (swipe no celular)
             mockupIndividualHtml = `
-                <div class="mt-2 mb-2">
-                    <a href="${p.mockupPeca}" target="_blank" class="inline-block relative group rounded border border-gray-200 shadow-sm overflow-hidden bg-white">
-                        <img src="${p.mockupPeca}" class="w-24 h-24 object-cover object-top group-hover:opacity-90 transition-opacity" alt="Arte da Peça">
-                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                            <span class="opacity-0 group-hover:opacity-100 bg-white/90 text-gray-700 text-[10px] px-2 py-0.5 rounded-full shadow font-bold"><i class="fa-solid fa-expand"></i> Ampliar</span>
-                        </div>
-                    </a>
+                <div class="mt-2 mb-2 flex gap-2 overflow-x-auto snap-x scrollbar-hide pb-1 w-full max-w-full">
+                    ${imagensHtml}
                 </div>
             `;
         }
