@@ -21,13 +21,15 @@ export const partTemplateHTML = `
     </div>
 
     <div class="mockup-dropzone mt-2 border-2 border-dashed border-gray-300 rounded-lg p-3 text-center bg-white hover:bg-gray-100 transition flex flex-col items-center justify-center cursor-pointer relative min-h-[80px]" tabindex="0">
-        <div class="z-10 flex flex-col items-center pointer-events-none dropzone-content">
+        <div class="z-10 flex flex-col items-center pointer-events-none dropzone-content transition-opacity duration-300">
             <span class="text-xl mb-1">📎</span>
-            <span class="text-xs text-gray-500 font-medium">Cole (Ctrl+V) ou Arraste a arte aqui</span>
+            <span class="text-xs text-gray-500 font-medium">Cole (Ctrl+V) ou Arraste as artes aqui</span>
         </div>
-        <img class="mockup-preview hidden absolute inset-0 w-full h-full object-contain p-1 rounded-lg z-0 bg-white" src="" alt="Preview da Arte">
-        <button type="button" class="remove-mockup-btn hidden absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow text-xs z-20 hover:bg-red-600" title="Remover Arte">&times;</button>
+        
+        <div class="mockup-gallery-container hidden absolute inset-0 w-full h-full p-1 z-0 bg-white rounded-lg flex overflow-x-auto overflow-y-hidden gap-2 items-center justify-start snap-x scrollbar-thin scrollbar-thumb-gray-300">
+            </div>
     </div>
+    
     <div class="flex items-center space-x-2 pt-2 border-t mt-2">
         <span class="text-xs font-semibold text-gray-500 uppercase">Modo:</span>
         <button type="button" class="part-type-selector text-sm px-2 py-1 rounded" data-type="comum">Simples</button>
