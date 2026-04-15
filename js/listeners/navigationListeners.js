@@ -76,7 +76,8 @@ export function initializeNavigationListeners(UI, deps) {
 
     
         // ==========================================
-        // ESTRATÉGIA 1: KANBAN DRAG-TO-SCROLL (A Correção Sênior)
+        // ESTRATÉGIA 1: KANBAN DRAG-TO-SCROLL (Hack Pointer Events)
+        // Solução Sênior Padrão Ouro (Trello/Figma)
         // ==========================================
         const initKanbanDragScroll = () => {
             const mainContainer = document.getElementById('mainViewContainer');
@@ -89,22 +90,27 @@ export function initializeNavigationListeners(UI, deps) {
             let activeSlider = null; 
 
             mainContainer.addEventListener('mousedown', (e) => {
-                // 1. CORREÇÃO DE ALVO: Ignoramos APENAS botões, inputs e links.
-                // Removemos as travas de texto. Agora você pode clicar em qualquer lugar do cartão!
+                // Ignora cliques em botões, links e inputs
                 if (e.target.closest('button, input, textarea, select, a')) return;
 
-                let target = e.target;
-                activeSlider = null;
+                // TÉCNICA À PROVA DE FALHAS: Em vez de adivinhar o tamanho matemático,
+                // vamos perguntar ao navegador quem de fato tem a barra de rolagem (overflow-x)
+                activeSlider = e.target.closest('#ordersContainer') || e.target.closest('.overflow-x-auto');
                 
-                while (target && target !== document.body) {
-                    if (target.scrollWidth > target.clientWidth) {
-                        activeSlider = target;
-                        break;
+                if (!activeSlider) {
+                    let node = e.target;
+                    while (node && node !== document.body) {
+                        const style = window.getComputedStyle(node);
+                        if (style.overflowX === 'auto' || style.overflowX === 'scroll') {
+                            activeSlider = node;
+                            break;
+                        }
+                        node = node.parentNode;
                     }
-                    target = target.parentElement;
                 }
-                
-                if (!activeSlider) activeSlider = document.querySelector('.overflow-x-auto') || mainContainer;
+
+                // Se clicou em um lugar que não tem rolagem, aborta.
+                if (!activeSlider) return;
 
                 isDown = true;
                 isDragging = false; 
@@ -112,40 +118,38 @@ export function initializeNavigationListeners(UI, deps) {
                 startScrollLeft = activeSlider.scrollLeft;
             });
 
-            mainContainer.addEventListener('mouseleave', () => {
+            // ATENÇÃO: Mudamos os ouvintes de mouseup e mousemove para o 'window'.
+            // Isso garante que mesmo se o mouse sair da tela sem querer, o drag funciona e se encerra corretamente!
+            window.addEventListener('mouseup', () => {
                 isDown = false;
-                isDragging = false;
-                if(activeSlider) activeSlider.classList.remove('cursor-grabbing');
+                if (isDragging) {
+                    isDragging = false;
+                    // Desliga o escudo nuclear
+                    document.body.classList.remove('is-dragging-screen');
+                    if (activeSlider) activeSlider.classList.remove('is-dragging-screen');
+                }
             });
 
-            mainContainer.addEventListener('mouseup', () => {
-                isDown = false;
-                isDragging = false;
-                if(activeSlider) activeSlider.classList.remove('cursor-grabbing');
-            });
-
-            mainContainer.addEventListener('mousemove', (e) => {
+            window.addEventListener('mousemove', (e) => {
                 if (!isDown || !activeSlider) return;
                 
-                // 2. A MÁGICA: Se o navegador notar que você começou a grifar (selecionar) um texto,
-                // nós cancelamos a rolagem imediatamente e deixamos você copiar!
-                if (window.getSelection().toString().length > 0) {
-                    isDragging = false; 
-                    return;
-                }
-
                 const x = e.pageX - activeSlider.offsetLeft;
                 const walk = x - startX;
 
-                // 3. ATRASO TÁTICO (5 pixels): Moveu um pouquinho sem grifar texto? É rolagem!
-                if (!isDragging && Math.abs(walk) > 5) {
+                // ATRASO TÁTICO: 8 pixels. Se você só quer selecionar um texto devagarzinho, ele deixa.
+                // Mas se puxou a tela mais rápido, ele ativa o Escudo Nuclear!
+                if (!isDragging && Math.abs(walk) > 8) {
                     isDragging = true;
-                    activeSlider.classList.add('cursor-grabbing'); 
+                    // Liga o escudo na PÁGINA INTEIRA
+                    document.body.classList.add('is-dragging-screen');
+                    if (activeSlider) activeSlider.classList.add('is-dragging-screen');
+                    window.getSelection().removeAllRanges(); // Limpa sujeiras de seleção
                 }
 
+                // Se o escudo está ativo, rola a tela sem que o navegador possa interferir
                 if (isDragging) {
                     e.preventDefault(); 
-                    activeSlider.scrollLeft = startScrollLeft - (walk * 1.5);
+                    activeSlider.scrollLeft = startScrollLeft - walk;
                 }
             });
         };
