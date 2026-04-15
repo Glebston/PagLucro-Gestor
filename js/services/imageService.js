@@ -8,11 +8,13 @@ import {
     doc, 
     getDoc 
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { 
+    ref, 
+    uploadBytes, 
+    getDownloadURL 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
-import { db, auth } from '../firebaseConfig.js'; // Caminho ajustado para subir um nível
-
-// --- Configurações ---
-const IMGBB_API_KEY = "f012978df48f3596b193c06e05589442";
+import { db, auth, storage } from '../firebaseConfig.js'; // Adicionado o storage
 
 /**
  * Converte um arquivo (File Object) para Base64 (sem prefixo de data url).
@@ -50,21 +52,36 @@ export const urlToBase64 = async (url) => {
 };
 
 /**
- * Faz upload de uma string Base64 para o ImgBB.
+ * Faz upload de um arquivo físico direto para o Firebase Storage.
+ * Retorna a URL pública de download nativa.
  */
-export const uploadToImgBB = async (base64Image) => {
-    const formData = new FormData();
-    formData.append('image', base64Image);
+export const uploadImageToStorage = async (file) => {
+    if (!file) return null;
     try {
-        const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-            method: 'POST',
-            body: formData
-        });
-        const data = await response.json();
-        if (data.success) return data.data.url;
-        throw new Error(data.error.message);
+        const user = auth.currentUser;
+        if (!user) throw new Error("Usuário não autenticado");
+
+        // Busca a empresa do usuário para criar uma pasta isolada no Storage
+        const mappingRef = doc(db, "user_mappings", user.uid);
+        const mappingSnap = await getDoc(mappingRef);
+        if (!mappingSnap.exists()) throw new Error("Empresa não encontrada");
+        const companyId = mappingSnap.data().companyId;
+
+        // Cria um nome único seguro para o arquivo
+        const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.]/g, '_') : 'mockup.jpg';
+        const uniqueName = `${Date.now()}_${safeName}`;
+        
+        // Define a rota exata no cofre: companies/{companyId}/mockups/{nome_do_arquivo}
+        const storageRef = ref(storage, `companies/${companyId}/mockups/${uniqueName}`);
+        
+        // Faz o upload nativo (aceita o File Object gerado pelo Dropzone diretamente)
+        const snapshot = await uploadBytes(storageRef, file);
+        
+        // Retorna o link de download direto do Google
+        const downloadURL = await getDownloadURL(snapshot.ref);
+        return downloadURL;
     } catch (error) {
-        console.error('Erro no upload para ImgBB:', error);
+        console.error('Erro no upload para o Firebase Storage:', error);
         return null;
     }
 };
