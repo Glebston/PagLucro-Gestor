@@ -104,19 +104,23 @@ const _createPdfDocument = async (order, userCompanyName, brandingData = null) =
     doc.text('Peças do Pedido', MARGIN, yPosition);
     yPosition += 6;
 
-    // [NOVO] Pré-carrega as imagens individuais das peças
+    // [NOVO] Pré-carrega as múltiplas imagens individuais das peças (Array Bidimensional)
     const partImagesBase64 = [];
     for (const p of (order.parts || [])) {
-        if (p.mockupPeca) {
+        const urlsDaPeca = [];
+        if (p.mockupPecas && p.mockupPecas.length > 0) urlsDaPeca.push(...p.mockupPecas);
+        else if (p.mockupPeca) urlsDaPeca.push(p.mockupPeca);
+
+        const b64Array = [];
+        for (const url of urlsDaPeca) {
             try {
-                const b64 = await urlToBase64(p.mockupPeca);
-                partImagesBase64.push(b64);
+                const b64 = await urlToBase64(url);
+                if (b64) b64Array.push(b64);
             } catch (e) {
-                partImagesBase64.push(null);
+                console.warn("Erro ao converter miniatura pro PDF", e);
             }
-        } else {
-            partImagesBase64.push(null);
         }
+        partImagesBase64.push(b64Array);
     }
 
     const tableHead = [['Peça / Detalhes', 'Arte', 'Material', 'Cor', 'Qtd', 'V. Un.', 'Subtotal']];
@@ -157,9 +161,18 @@ const _createPdfDocument = async (order, userCompanyName, brandingData = null) =
             unitPriceText = `R$ ${(p.unitPrice || 0).toFixed(2)}`;
         }
 
+        // Matemática para altura da célula baseada no grid de imagens (tamanho 11mm, máx 2 por linha)
+        const rowIndex = tableBody.length;
+        const numImages = partImagesBase64[rowIndex].length;
+        const dim = 11;
+        const margin = 2;
+        const imagesPerRow = 2; 
+        const imageRows = Math.ceil(numImages / imagesPerRow) || 1; 
+        const calcMinHeight = Math.max(14, (imageRows * (dim + margin)) + margin);
+
         tableBody.push([
             { content: `${p.type}\n${detailsText}`, styles: { fontSize: 8 } },
-            '', // Coluna 'Arte' vazia para receber a imagem
+            { content: '', styles: { minCellHeight: calcMinHeight } }, // A mágica da altura dinâmica
             p.material,
             p.colorMain,
             totalQty,
@@ -167,7 +180,6 @@ const _createPdfDocument = async (order, userCompanyName, brandingData = null) =
             { content: `R$ ${partSubtotal.toFixed(2)}`, styles: { halign: 'right' } }
         ]);
     });
-
     doc.autoTable({
         head: tableHead,
         body: tableBody,
@@ -176,20 +188,39 @@ const _createPdfDocument = async (order, userCompanyName, brandingData = null) =
         headStyles: { fillColor: [230, 230, 230], textColor: 20, fontStyle: 'bold' },
         styles: { minCellHeight: 14 }, // Garante espaço para a miniatura
         columnStyles: {
-            0: { cellWidth: 50 },
-            1: { cellWidth: 16, halign: 'center', valign: 'middle' }, // Coluna da Arte
+            0: { cellWidth: 44 }, // Levemente reduzido para dar espaço à galeria
+            1: { cellWidth: 28, halign: 'center', valign: 'middle' }, // Expandido para caber 2 imagens
             4: { halign: 'center' },
             5: { halign: 'right' },
             6: { halign: 'right' }
         },
         didDrawCell: (data) => {
             if (data.section === 'body' && data.column.index === 1) {
-                const imgData = partImagesBase64[data.row.index];
-                if (imgData) {
-                    const dim = 12; // Tamanho da imagem em mm
-                    const x = data.cell.x + (data.cell.width / 2) - (dim / 2);
-                    const y = data.cell.y + (data.cell.height / 2) - (dim / 2);
-                    doc.addImage(imgData, 'JPEG', x, y, dim, dim);
+                const images = partImagesBase64[data.row.index];
+                if (images && images.length > 0) {
+                    const dim = 11; // Tamanho da miniatura
+                    const margin = 2; // Espaçamento
+                    const cols = 2; // Colunas do Grid
+                    
+                    // Centraliza o "bloco" inteiro verticalmente dentro da célula
+                    const totalRows = Math.ceil(images.length / cols);
+                    const blockHeight = (totalRows * dim) + ((totalRows - 1) * margin);
+                    let startY = data.cell.y + (data.cell.height / 2) - (blockHeight / 2);
+                    
+                    images.forEach((imgData, idx) => {
+                        const col = idx % cols;
+                        const row = Math.floor(idx / cols);
+                        
+                        // Centraliza imagens na última linha caso seja ímpar (ex: 3 imagens, a última fica no meio)
+                        const imagesInThisRow = (row === totalRows - 1) ? (images.length - (row * cols)) : cols;
+                        const blockWidth = (imagesInThisRow * dim) + ((imagesInThisRow - 1) * margin);
+                        let startX = data.cell.x + (data.cell.width / 2) - (blockWidth / 2);
+                        
+                        const x = startX + (col * (dim + margin));
+                        const y = startY + (row * (dim + margin));
+                        
+                        doc.addImage(imgData, 'JPEG', x, y, dim, dim);
+                    });
                 }
             }
         },
@@ -340,19 +371,23 @@ const _createProductionPdfDocument = async (order, userCompanyName) => {
     doc.text('Itens para Produção', MARGIN, yPosition);
     yPosition += 6;
 
-    // [NOVO] Pré-carrega as imagens individuais das peças
+    // [NOVO] Pré-carrega as múltiplas imagens individuais das peças (Array Bidimensional)
     const prodPartImagesBase64 = [];
     for (const p of (order.parts || [])) {
-        if (p.mockupPeca) {
+        const urlsDaPeca = [];
+        if (p.mockupPecas && p.mockupPecas.length > 0) urlsDaPeca.push(...p.mockupPecas);
+        else if (p.mockupPeca) urlsDaPeca.push(p.mockupPeca);
+
+        const b64Array = [];
+        for (const url of urlsDaPeca) {
             try {
-                const b64 = await urlToBase64(p.mockupPeca);
-                prodPartImagesBase64.push(b64);
+                const b64 = await urlToBase64(url);
+                if (b64) b64Array.push(b64);
             } catch (e) {
-                prodPartImagesBase64.push(null);
+                console.warn("Erro ao converter miniatura pro PDF Prod", e);
             }
-        } else {
-            prodPartImagesBase64.push(null);
         }
+        prodPartImagesBase64.push(b64Array);
     }
 
     const tableHead = [['Peça / Detalhes (Grade)', 'Arte', 'Material', 'Cor', 'QTD TOTAL']];
@@ -380,9 +415,19 @@ const _createProductionPdfDocument = async (order, userCompanyName) => {
             detailsText = p.details.map(d => `• ${d.name||'--'} (${d.size||'--'}) Nº ${d.number||'--'}`).join('\n');
         }
 
+        const rowIndex = tableBody.length;
+        const numImages = prodPartImagesBase64[rowIndex].length;
+        
+        // Matemática para altura da célula na OS de Produção (tamanho 13mm, 2 por linha)
+        const dim = 13;
+        const margin = 2;
+        const imagesPerRow = 2; 
+        const imageRows = Math.ceil(numImages / imagesPerRow) || 1; 
+        const calcMinHeight = Math.max(16, (imageRows * (dim + margin)) + margin);
+
         tableBody.push([
             { content: `${p.type}\n${detailsText}`, styles: { fontSize: 10 } },
-            '', // Célula vazia para a miniatura
+            { content: '', styles: { minCellHeight: calcMinHeight } }, // Altura dinâmica calculada
             p.material,
             p.colorMain,
             { content: totalQty.toString(), styles: { halign: 'center', fontStyle: 'bold', fontSize: 12 } }
@@ -397,20 +442,37 @@ const _createProductionPdfDocument = async (order, userCompanyName) => {
         headStyles: { fillColor: [80, 80, 80], textColor: 255, fontStyle: 'bold', fontSize: 11 },
         styles: { cellPadding: 2, fontSize: 10, valign: 'middle', minCellHeight: 16 }, // minCellHeight garante espaço para a arte
         columnStyles: {
-            0: { cellWidth: 'auto' },
-            1: { cellWidth: 20, halign: 'center' }, // Coluna da Arte
-            2: { cellWidth: 30 }, 
-            3: { cellWidth: 25 }, 
+            0: { cellWidth: 'auto' }, // Absorve o redimensionamento perfeitamente
+            1: { cellWidth: 32, halign: 'center' }, // Expandida para caber 2 minies de 13mm com margem
+            2: { cellWidth: 28 }, // Ajuste fino
+            3: { cellWidth: 22 }, // Ajuste fino
             4: { cellWidth: 20, halign: 'center' } 
         },
         didDrawCell: (data) => {
             if (data.section === 'body' && data.column.index === 1) {
-                const imgData = prodPartImagesBase64[data.row.index];
-                if (imgData) {
-                    const dim = 14; // Tamanho maior na Produção
-                    const x = data.cell.x + (data.cell.width / 2) - (dim / 2);
-                    const y = data.cell.y + (data.cell.height / 2) - (dim / 2);
-                    doc.addImage(imgData, 'JPEG', x, y, dim, dim);
+                const images = prodPartImagesBase64[data.row.index];
+                if (images && images.length > 0) {
+                    const dim = 13; // Tamanho maior na Produção
+                    const margin = 2;
+                    const cols = 2;
+                    
+                    const totalRows = Math.ceil(images.length / cols);
+                    const blockHeight = (totalRows * dim) + ((totalRows - 1) * margin);
+                    let startY = data.cell.y + (data.cell.height / 2) - (blockHeight / 2);
+                    
+                    images.forEach((imgData, idx) => {
+                        const col = idx % cols;
+                        const row = Math.floor(idx / cols);
+                        
+                        const imagesInThisRow = (row === totalRows - 1) ? (images.length - (row * cols)) : cols;
+                        const blockWidth = (imagesInThisRow * dim) + ((imagesInThisRow - 1) * margin);
+                        let startX = data.cell.x + (data.cell.width / 2) - (blockWidth / 2);
+                        
+                        const x = startX + (col * (dim + margin));
+                        const y = startY + (row * (dim + margin));
+                        
+                        doc.addImage(imgData, 'JPEG', x, y, dim, dim);
+                    });
                 }
             }
         },
