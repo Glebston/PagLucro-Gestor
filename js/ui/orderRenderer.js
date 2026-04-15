@@ -642,13 +642,29 @@ export const viewOrder = (order, targetPartIndex = null) => {
         const itemStage = p.status_producao || 'Não Iniciado';
         const stageBadge = `<span class="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap shadow-sm">${itemStage}</span>`;
 
-        // --- INÍCIO: ZONA DO MOCKUP INDIVIDUAL NO MODAL ---
+        // --- INÍCIO: ZONA DO MOCKUP INDIVIDUAL NO MODAL (Multi-Imagens) ---
         let mockupThumbHtml = '';
-        if (p.mockupPeca) {
+        
+        // Unifica a nova estrutura (array) com o legado (string isolada)
+        let urlsToRender = [];
+        if (p.mockupPecas && p.mockupPecas.length > 0) {
+            urlsToRender = p.mockupPecas;
+        } else if (p.mockupPeca) {
+            urlsToRender = [p.mockupPeca];
+        }
+
+        if (urlsToRender.length > 0) {
+            // Cria um container flex com overflow oculto para não quebrar a tabela se houver muitas fotos
+            const miniesHtml = urlsToRender.map(url => `
+                <a href="${url}" target="_blank" class="shrink-0 relative z-10 hover:z-50" title="Ver Arte em tela cheia">
+                    <img src="${url}" class="w-8 h-8 object-contain rounded border border-gray-300 bg-white hover:scale-[3] origin-left transition-transform duration-200 shadow-sm cursor-pointer" alt="Arte">
+                </a>
+            `).join('');
+
             mockupThumbHtml = `
-                <a href="${p.mockupPeca}" target="_blank" class="shrink-0 ml-2 relative z-10" title="Ver Arte em tela cheia">
-                    <img src="${p.mockupPeca}" class="w-8 h-8 object-contain rounded border border-gray-300 bg-white hover:scale-[3] origin-left transition-transform duration-200 shadow-sm cursor-pointer" alt="Arte">
-                </a>`;
+                <div class="flex gap-1 ml-2 max-w-[120px] overflow-x-auto scrollbar-hide py-1">
+                    ${miniesHtml}
+                </div>`;
         }
         // --- FIM: ZONA DO MOCKUP INDIVIDUAL NO MODAL ---
 
@@ -693,21 +709,33 @@ export const viewOrder = (order, targetPartIndex = null) => {
 
     const paymentFinStatusText = order.paymentFinStatus === 'a_receber' ? 'A Receber' : 'Recebido';
 
-    // --- INÍCIO: ZONA DE ARQUIVOS INTELIGENTE (Fábrica vs Gestor) ---
+    // --- INÍCIO: ZONA DE ARQUIVOS INTELIGENTE (Fábrica vs Gestor Multi-Imagens) ---
     let arquivosHtml = '';
     let tituloArquivos = 'Arquivos do Pedido';
     
     if (isProduction && targetPartIndex !== null) {
-        tituloArquivos = 'Arte da Peça (Para Produção)';
+        tituloArquivos = 'Artes da Peça (Para Produção)';
         const part = order.parts[targetPartIndex];
-        if (part.mockupPeca) {
-            arquivosHtml = `<a href="${part.mockupPeca}" target="_blank"><img src="${part.mockupPeca}" class="w-32 h-32 object-cover border rounded-md mockup-image hover:scale-[3] origin-left transition-transform duration-200 shadow-sm" alt="Arte da Peça"></a>`;
+        
+        let urlsProducao = [];
+        if (part.mockupPecas && part.mockupPecas.length > 0) urlsProducao = part.mockupPecas;
+        else if (part.mockupPeca) urlsProducao = [part.mockupPeca];
+
+        if (urlsProducao.length > 0) {
+            arquivosHtml = urlsProducao.map(url => `
+                <a href="${url}" target="_blank">
+                    <img src="${url}" class="w-32 h-32 object-cover border rounded-md mockup-image hover:scale-[3] origin-left transition-transform duration-200 shadow-sm" alt="Arte da Peça">
+                </a>
+            `).join('');
         } else {
             arquivosHtml = '<span class="text-sm text-gray-500 italic">Nenhuma arte individual atrelada a esta peça.</span>';
         }
     } else {
-        // Gestor vê os arquivos normais
-        arquivosHtml = (order.mockupUrls || []).map(url => `<a href="${url}" target="_blank"><img src="${url}" class="w-32 h-32 object-cover border rounded-md mockup-image hover:scale-[3] origin-left transition-transform duration-200 shadow-sm"></a>`).join('') || '<span class="text-sm text-gray-500 italic">Nenhum arquivo.</span>';
+        // Gestor vê os arquivos normais (Legado Global + Individuais)
+        let allUrls = [...(order.mockupUrls || [])];
+        // [OPCIONAL]: Se quiser que o gestor veja TODAS as artes de TODAS as peças no rodapé do modal, 
+        // poderíamos fazer um push aqui, mas vamos manter a lógica atual de arquivos "Globais"
+        arquivosHtml = allUrls.map(url => `<a href="${url}" target="_blank"><img src="${url}" class="w-32 h-32 object-cover border rounded-md mockup-image hover:scale-[3] origin-left transition-transform duration-200 shadow-sm"></a>`).join('') || '<span class="text-sm text-gray-500 italic">Nenhum arquivo.</span>';
     }
     // --- FIM: ZONA DE ARQUIVOS INTELIGENTE ---
 
