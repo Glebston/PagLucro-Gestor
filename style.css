@@ -229,10 +229,17 @@ input[type="file"]::file-selector-button { @apply bg-gray-200 text-gray-800 font
     background-color: rgba(59, 130, 246, 0.8);
 }
 
-/* Utilitário auxiliar para o JS alterar o cursor durante o drag */
-.cursor-grabbing {
+/* ==========================================
+   O ESCUDO NUCLEAR (Drag-to-Scroll)
+   ========================================== */
+.is-dragging-screen {
     cursor: grabbing !important;
     cursor: -webkit-grabbing !important;
-    user-select: none !important; 
-    -webkit-user-select: none !important; 
+}
+/* Esta é a linha mágica que resolve tudo. Enquanto arrasta, 
+   desliga a interação com todos os filhos da tela, acabando com os conflitos. */
+.is-dragging-screen * {
+    pointer-events: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
 }
