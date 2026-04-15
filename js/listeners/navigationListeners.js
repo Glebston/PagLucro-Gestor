@@ -88,30 +88,18 @@ export function initializeNavigationListeners(UI, deps) {
             let startScrollLeft;
             let activeSlider = null; 
 
+            // Como o mainContainer é fixo, a delegação de eventos sobrevive à injeção de rotas!
             mainContainer.addEventListener('mousedown', (e) => {
-                // A MÁGICA: Só inicia o modo "Arrastar Tela" se o usuário estiver segurando a tecla ALT.
-                // Se não estiver segurando, ignora este script e deixa o mouse livre para selecionar textos!
+                // Se não estiver segurando ALT, libera 100% para o navegador selecionar textos
                 if (!e.altKey) return; 
 
-                // Impede o comportamento padrão apenas quando estamos no modo de arrasto
-                e.preventDefault(); 
-
-                // Acha a "Mesa" do Kanban
+                // Tenta achar a div que tem o overflow (a dona real da rolagem)
                 activeSlider = e.target.closest('#ordersContainer') || e.target.closest('.overflow-x-auto');
                 
-                // Fallback matemático se o ID ou classe não for encontrado
-                if (!activeSlider) {
-                    let node = e.target;
-                    while (node && node !== document.body) {
-                        if (node.scrollWidth > node.clientWidth && window.getComputedStyle(node).overflowX !== 'visible') {
-                            activeSlider = node;
-                            break;
-                        }
-                        node = node.parentElement;
-                    }
-                }
-
                 if (!activeSlider) return;
+
+                // Achou o slider E está segurando ALT? Agora sim bloqueamos o nativo!
+                e.preventDefault(); 
 
                 isDown = true;
                 activeSlider.classList.add('cursor-grabbing');
@@ -120,21 +108,28 @@ export function initializeNavigationListeners(UI, deps) {
                 startScrollLeft = activeSlider.scrollLeft;
             });
 
-            // Usamos o 'window' para garantir que não trave se o mouse sair da tela
+            // Ouvintes globais para não perder o foco se o mouse sair rápido
             window.addEventListener('mouseup', () => {
                 isDown = false;
-                if (activeSlider) activeSlider.classList.remove('cursor-grabbing');
+                if (activeSlider) {
+                    activeSlider.classList.remove('cursor-grabbing');
+                    activeSlider = null; // Limpa o alvo da memória
+                }
             });
 
             window.addEventListener('mousemove', (e) => {
                 if (!isDown || !activeSlider) return;
                 
-                e.preventDefault(); // Trava 100% da seleção de texto enquanto arrasta
+                e.preventDefault(); // Mantém a trava de seleção enquanto arrasta
                 const x = e.pageX - activeSlider.offsetLeft;
-                const walk = (x - startX) * 1.5; // Multiplicador de velocidade
+                const walk = (x - startX) * 1.5; // Ajuste a velocidade de rolagem aqui
                 activeSlider.scrollLeft = startScrollLeft - walk;
             });
         };
+
+        // 🔥 A MÁGICA QUE FALTAVA: Invocar a função!
+        initKanbanDragScroll();
+        // ==========================================
     // ==========================================
     
     // Navegação via botão Financeiro
