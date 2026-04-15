@@ -616,49 +616,102 @@ export const addPart = (partData = {}, partCounter) => {
     
     renderFinancialSection();
     
-    // --- INÍCIO: ZONA 5 (Inteligência do Mockup Individual) ---
+    // --- INÍCIO: ZONA 5 (Inteligência do Mockup Individual Multi-Imagens) ---
     const dropzone = partItem.querySelector('.mockup-dropzone');
-    const previewImg = partItem.querySelector('.mockup-preview');
-    const removeMockupBtn = partItem.querySelector('.remove-mockup-btn');
     const dropzoneContent = partItem.querySelector('.dropzone-content');
+    const galleryContainer = partItem.querySelector('.mockup-gallery-container');
 
-    // 1. Inicializa a memória da imagem (fica nulo por padrão)
-    partItem._mockupFile = null;
+    // 1. Inicializa a memória em massa
+    partItem._mockupFiles = []; // Array para arquivos físicos novos
+    let existingUrls = []; // Array para links que já vieram do banco
 
-    if (dropzone) {
-        // Função interna para processar o arquivo recebido (Drag ou Paste)
-        const processMockupFile = (file) => {
-            if (!file || !file.type.startsWith('image/')) {
-                alert('Formato inválido. Por favor, insira apenas imagens.');
-                return;
-            }
-            
-            partItem._mockupFile = file; // Salva o arquivo real para envio futuro ao ImgBB
-
-            // Usa FileReader para mostrar a miniatura imediatamente
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                previewImg.src = e.target.result;
-                previewImg.classList.remove('hidden');
-                removeMockupBtn.classList.remove('hidden');
-                dropzoneContent.classList.add('hidden');
-                dropzone.classList.remove('border-dashed', 'border-gray-300');
-                dropzone.classList.add('border-solid', 'border-blue-400');
-            };
-            reader.readAsDataURL(file);
-        };
-
-        // 2. Prepara para o Modo Edição (se a peça já vier do banco com arte salva)
-        if (partData.mockupPeca) {
-            previewImg.src = partData.mockupPeca;
-            previewImg.classList.remove('hidden');
-            removeMockupBtn.classList.remove('hidden');
-            dropzoneContent.classList.add('hidden');
-            dropzone.classList.remove('border-dashed', 'border-gray-300');
-            dropzone.classList.add('border-solid', 'border-blue-400');
+    if (dropzone && galleryContainer) {
+        
+        // 2. Resgata imagens do Modo Edição (Trata Legado e Nova Estrutura simultaneamente)
+        if (partData.mockupPecas && partData.mockupPecas.length > 0) {
+            existingUrls = [...partData.mockupPecas];
+        } else if (partData.mockupPeca) {
+            existingUrls = [partData.mockupPeca]; // Fallback heroico do legado
         }
 
-        // 3. Listeners de Drag & Drop
+        // 3. O Cérebro de Renderização da Galeria
+        const renderGallery = () => {
+            galleryContainer.innerHTML = '';
+            const totalImages = existingUrls.length + partItem._mockupFiles.length;
+
+            if (totalImages === 0) {
+                galleryContainer.classList.add('hidden');
+                dropzoneContent.classList.remove('opacity-0');
+                dropzone.classList.remove('border-solid', 'border-blue-400');
+                dropzone.classList.add('border-dashed', 'border-gray-300');
+                return;
+            }
+
+            galleryContainer.classList.remove('hidden');
+            dropzoneContent.classList.add('opacity-0'); // Oculta o texto suavemente
+            dropzone.classList.remove('border-dashed', 'border-gray-300');
+            dropzone.classList.add('border-solid', 'border-blue-400');
+
+            // 3.1 Renderiza Imagens Antigas (do Banco)
+            existingUrls.forEach((url, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'relative shrink-0 h-[65px] w-[65px] group'; // Tamanho fixo para o carrossel não quebrar
+                wrapper.innerHTML = `
+                    <img src="${url}" class="w-full h-full object-contain rounded-md border border-gray-200 bg-white mockup-preview shadow-sm">
+                    <button type="button" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-md text-[10px] z-20 hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity" title="Remover Arte">&times;</button>
+                `;
+                wrapper.querySelector('button').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    existingUrls.splice(index, 1);
+                    renderGallery();
+                });
+                galleryContainer.appendChild(wrapper);
+            });
+
+            // 3.2 Renderiza Imagens Novas (Memória RAM via FileReader)
+            partItem._mockupFiles.forEach((file, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'relative shrink-0 h-[65px] w-[65px] group';
+                
+                const img = document.createElement('img');
+                img.className = 'w-full h-full object-contain rounded-md border border-gray-200 bg-white mockup-preview shadow-sm';
+                
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-md text-[10px] z-20 hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity';
+                btn.innerHTML = '&times;';
+                btn.title = 'Remover Arte';
+                
+                wrapper.appendChild(img);
+                wrapper.appendChild(btn);
+                galleryContainer.appendChild(wrapper);
+
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    partItem._mockupFiles.splice(index, 1);
+                    renderGallery();
+                });
+
+                const reader = new FileReader();
+                reader.onload = (e) => { img.src = e.target.result; };
+                reader.readAsDataURL(file);
+            });
+        };
+
+        // 4. Lógica de Captura (Lote)
+        const processMockupFiles = (files) => {
+            let added = false;
+            Array.from(files).forEach(file => {
+                if (file && file.type.startsWith('image/')) {
+                    partItem._mockupFiles.push(file); // Agora é um PUSH na matriz
+                    added = true;
+                }
+            });
+            if (!added) alert('Formato inválido. Por favor, insira apenas imagens.');
+            else renderGallery();
+        };
+
+        // 5. Listeners da Interface
         dropzone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropzone.classList.add('bg-blue-50', 'border-blue-400');
@@ -673,39 +726,24 @@ export const addPart = (partData = {}, partCounter) => {
             e.preventDefault();
             dropzone.classList.remove('bg-blue-50', 'border-blue-400');
             if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                processMockupFile(e.dataTransfer.files[0]);
+                processMockupFiles(e.dataTransfer.files);
             }
         });
 
-        // 4. Listener para Colar (Ctrl+V) - Requer clicar na área antes
         dropzone.addEventListener('paste', (e) => {
             e.preventDefault();
             const clipboardItems = e.clipboardData.items;
-            let imageFile = null;
+            const validFiles = [];
             for (let i = 0; i < clipboardItems.length; i++) {
                 if (clipboardItems[i].type.indexOf('image') !== -1) {
-                    imageFile = clipboardItems[i].getAsFile();
-                    break;
+                    validFiles.push(clipboardItems[i].getAsFile());
                 }
             }
-            if (imageFile) processMockupFile(imageFile);
+            if (validFiles.length > 0) processMockupFiles(validFiles);
         });
 
-        // 5. Botão de Remover a Arte
-        removeMockupBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // Evita conflitos
-            partItem._mockupFile = null; // Apaga da memória
-            
-            // Se tinha imagem do banco, apaga a referência para enviar atualização limpa
-            if (partData.mockupPeca) partData.mockupPeca = null; 
-
-            previewImg.src = '';
-            previewImg.classList.add('hidden');
-            removeMockupBtn.classList.add('hidden');
-            dropzoneContent.classList.remove('hidden');
-            dropzone.classList.remove('border-solid', 'border-blue-400');
-            dropzone.classList.add('border-dashed', 'border-gray-300');
-        });
+        // 6. Chamada Inicial para pintar a tela caso seja Edição
+        renderGallery();
     }
     // --- FIM: ZONA 5 ---
 
