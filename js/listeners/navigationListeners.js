@@ -77,24 +77,29 @@ export function initializeNavigationListeners(UI, deps) {
     // ==========================================
         // ESTRATÉGIA 1: KANBAN DRAG-TO-SCROLL (Caça ao Scroll)
         // ==========================================
+        // ==========================================
+        // ESTRATÉGIA 1: KANBAN DRAG-TO-SCROLL (Inteligência de Seleção)
+        // ==========================================
         const initKanbanDragScroll = () => {
             const mainContainer = document.getElementById('mainViewContainer');
             if (!mainContainer) return;
 
             let isDown = false;
+            let isDragging = false; // NOVA FLAG: Diferencia um simples clique de um arrasto real
             let startX;
             let startScrollLeft;
             let activeSlider = null; 
 
             mainContainer.addEventListener('mousedown', (e) => {
-                if (['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT', 'A', 'SVG', 'PATH'].includes(e.target.tagName.toUpperCase())) return;
+                // 1. O FILTRO DE TAGS: Ampliamos o escudo para incluir tags de texto puro.
+                // Se clicar direto no texto, o arrasto é cancelado e a seleção funciona normalmente.
+                const ignoredTags = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT', 'A', 'SVG', 'PATH', 'P', 'SPAN', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'STRONG', 'LABEL'];
+                if (ignoredTags.includes(e.target.tagName.toUpperCase())) return;
 
-                // TÉCNICA DE CAÇA: Sobe pelo HTML até achar exatamente quem tem a barra de rolagem
                 let target = e.target;
-                activeSlider = null; // Reseta por segurança
+                activeSlider = null;
                 
                 while (target && target !== document.body) {
-                    // A mágica matemática: Se o conteúdo é maior que a caixa, é aqui que rola!
                     if (target.scrollWidth > target.clientWidth) {
                         activeSlider = target;
                         break;
@@ -102,35 +107,49 @@ export function initializeNavigationListeners(UI, deps) {
                     target = target.parentElement;
                 }
                 
-                // Fallback de segurança 
                 if (!activeSlider) activeSlider = document.querySelector('.overflow-x-auto') || mainContainer;
 
                 isDown = true;
-                activeSlider.classList.add('cursor-grabbing');
-                
+                isDragging = false; // Resetamos a intenção a cada clique
                 startX = e.pageX - activeSlider.offsetLeft;
                 startScrollLeft = activeSlider.scrollLeft;
+                
+                // NOTA: Não colocamos a classe 'cursor-grabbing' aqui ainda. Atraso tático!
             });
 
             mainContainer.addEventListener('mouseleave', () => {
                 isDown = false;
+                isDragging = false;
                 if(activeSlider) activeSlider.classList.remove('cursor-grabbing');
             });
 
             mainContainer.addEventListener('mouseup', () => {
                 isDown = false;
+                isDragging = false;
                 if(activeSlider) activeSlider.classList.remove('cursor-grabbing');
             });
 
             mainContainer.addEventListener('mousemove', (e) => {
                 if (!isDown || !activeSlider) return;
                 
-                e.preventDefault(); 
-                window.getSelection().removeAllRanges(); 
+                // 2. O FILTRO DE SELEÇÃO: Se o usuário já conseguiu selecionar algum texto, abortamos a rolagem
+                if (window.getSelection().toString().length > 0) return;
 
                 const x = e.pageX - activeSlider.offsetLeft;
-                const walk = (x - startX) * 1.5; 
-                activeSlider.scrollLeft = startScrollLeft - walk;
+                const distance = Math.abs(x - startX);
+
+                // 3. O ATRASO TÁTICO: Só consideramos "arrasto" se o mouse moveu mais de 5 pixels
+                if (distance > 5) {
+                    isDragging = true;
+                    activeSlider.classList.add('cursor-grabbing'); // Agora sim ativamos o escudo CSS
+                    e.preventDefault(); 
+                }
+
+                // Se confirmou que a intenção é arrastar a tela, executa o movimento
+                if (isDragging) {
+                    const walk = (x - startX) * 1.5; 
+                    activeSlider.scrollLeft = startScrollLeft - walk;
+                }
             });
         };
     // Inicia o listener de drag (e garante que reconecte se a view mudar, via evento viewLoaded)
