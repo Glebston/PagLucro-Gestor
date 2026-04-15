@@ -80,54 +80,47 @@ export function initializeNavigationListeners(UI, deps) {
         // Solução UX Profissional sem conflito de texto
         // ==========================================
         const initKanbanDragScroll = () => {
-            const mainContainer = document.getElementById('mainViewContainer');
-            if (!mainContainer) return;
+            // Ouvimos direto do documento, pois o Kanban é destruído e recriado via rotas SPA
+            document.addEventListener('mousedown', (e) => {
+                if (!e.altKey) return; // Se não estiver segurando ALT, não faz nada (deixa copiar texto)
 
-            let isDown = false;
-            let startX;
-            let startScrollLeft;
-            let activeSlider = null; 
-
-            // Como o mainContainer é fixo, a delegação de eventos sobrevive à injeção de rotas!
-            mainContainer.addEventListener('mousedown', (e) => {
-                // Se não estiver segurando ALT, libera 100% para o navegador selecionar textos
-                if (!e.altKey) return; 
-
-                // Tenta achar a div que tem o overflow (a dona real da rolagem)
-                activeSlider = e.target.closest('#ordersContainer') || e.target.closest('.overflow-x-auto');
+                // Encontra a lista exata gerada pelo orderRenderer.js
+                const slider = document.getElementById('ordersList');
                 
-                if (!activeSlider) return;
+                // Só arrasta se o elemento existir e for realmente um quadro de arrasto horizontal
+                if (!slider || !slider.classList.contains('overflow-x-auto')) return;
 
-                // Achou o slider E está segurando ALT? Agora sim bloqueamos o nativo!
-                e.preventDefault(); 
-
-                isDown = true;
-                activeSlider.classList.add('cursor-grabbing');
+                e.preventDefault(); // Bloqueia texto/D&D nativo
                 
-                startX = e.pageX - activeSlider.offsetLeft;
-                startScrollLeft = activeSlider.scrollLeft;
-            });
+                console.log("Alvo do Kanban Capturado! Iniciando rolagem..."); // Feedback visual no console
 
-            // Ouvintes globais para não perder o foco se o mouse sair rápido
-            window.addEventListener('mouseup', () => {
-                isDown = false;
-                if (activeSlider) {
-                    activeSlider.classList.remove('cursor-grabbing');
-                    activeSlider = null; // Limpa o alvo da memória
-                }
-            });
-
-            window.addEventListener('mousemove', (e) => {
-                if (!isDown || !activeSlider) return;
+                slider.classList.add('cursor-grabbing');
                 
-                e.preventDefault(); // Mantém a trava de seleção enquanto arrasta
-                const x = e.pageX - activeSlider.offsetLeft;
-                const walk = (x - startX) * 1.5; // Ajuste a velocidade de rolagem aqui
-                activeSlider.scrollLeft = startScrollLeft - walk;
+                // Captura a posição inicial
+                const startX = e.pageX - slider.offsetLeft;
+                const startScrollLeft = slider.scrollLeft;
+
+                // Cria funções temporárias para seguir o mouse sem sujar a memória global
+                const mouseMoveHandler = (moveEvent) => {
+                    moveEvent.preventDefault();
+                    const x = moveEvent.pageX - slider.offsetLeft;
+                    const walk = (x - startX) * 2; // Velocidade do arrasto (2x mais fluida)
+                    slider.scrollLeft = startScrollLeft - walk;
+                };
+
+                const mouseUpHandler = () => {
+                    slider.classList.remove('cursor-grabbing');
+                    document.removeEventListener('mousemove', mouseMoveHandler);
+                    document.removeEventListener('mouseup', mouseUpHandler);
+                };
+
+                // Ativa os ouvintes temporários de movimento e soltura
+                document.addEventListener('mousemove', mouseMoveHandler);
+                document.addEventListener('mouseup', mouseUpHandler);
             });
         };
 
-        // 🔥 A MÁGICA QUE FALTAVA: Invocar a função!
+        // Inicia a vigilância
         initKanbanDragScroll();
         // ==========================================
     
