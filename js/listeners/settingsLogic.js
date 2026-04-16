@@ -7,7 +7,7 @@
 import { getCompanySettings, saveCompanySettings } from "../services/settingsService.js";
 import { auth, secondaryAuth } from "../firebaseConfig.js"; 
 import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { fileToBase64, uploadToImgBB } from "../services/imageService.js";
+import { uploadImageToStorage } from "../services/imageService.js";
 
 let DOM = {};
 let currentProductionStages = [];
@@ -147,8 +147,8 @@ const attachSettingsListenersOnce = () => {
                 }
                 if(DOM.saveBtn) DOM.saveBtn.disabled = true; 
 
-                const base64 = await fileToBase64(file);
-                const imageUrl = await uploadToImgBB(base64);
+                // Envia o arquivo físico diretamente para o cofre do Firebase Storage
+                const imageUrl = await uploadImageToStorage(file);
 
                 if (imageUrl) {
                     if(DOM.logoUrlHidden) DOM.logoUrlHidden.value = imageUrl; 
