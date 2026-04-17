@@ -1,9 +1,12 @@
 // js/services/customerService.js
 // ==========================================================
 // MÓDULO CUSTOMER SERVICE (CRM - Ficha de Ouro)
-// Responsabilidade: Processar métricas financeiras e histórico
-// de clientes em memória (Zero requisições extras ao Firebase).
+// Responsabilidade: Processar métricas financeiras e consultar
+// o banco de dados para o Motor CRM Escalável.
 // ==========================================================
+
+import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { db } from '../firebaseConfig.js';
 
 /**
  * Calcula o valor total de um pedido replicando a lógica financeira oficial da fábrica.
@@ -80,4 +83,60 @@ export const getCustomerMetrics = (clientKey, allOrders) => {
         lastOrderDate,
         history: customerHistory
     };
+};
+
+// ==========================================================
+// [NOVO] CONEXÕES COM O FIREBASE (Migração Formiguinha)
+// ==========================================================
+
+/**
+ * Busca a gaveta do cliente no banco de dados.
+ */
+export const getCustomerProfile = async (companyId, clientKey) => {
+    if (!companyId || !clientKey) return null;
+    
+    // Limpa a chave para ser um ID válido no Firebase (remove espaços extras)
+    const safeKey = String(clientKey).trim().replace(/\//g, '-');
+    
+    try {
+        const customerRef = doc(db, `companies/${companyId}/customers/${safeKey}`);
+        const snap = await getDoc(customerRef);
+        
+        if (snap.exists()) {
+            return snap.data();
+        }
+        return null;
+    } catch (error) {
+        console.error("Erro ao buscar cliente no banco:", error);
+        return null;
+    }
+};
+
+/**
+ * Cria a gaveta do cliente no banco de dados com as métricas calculadas.
+ * Salva apenas os números de Ouro (LTV, Ticket) e não o array pesado de histórico.
+ */
+export const saveCustomerProfile = async (companyId, clientKey, metricsData) => {
+    if (!companyId || !clientKey || !metricsData) return;
+
+    const safeKey = String(clientKey).trim().replace(/\//g, '-');
+    
+    try {
+        const customerRef = doc(db, `companies/${companyId}/customers/${safeKey}`);
+        
+        const payload = {
+            clientKey: clientKey,
+            ltv: metricsData.ltv || 0,
+            totalOrders: metricsData.totalOrders || 0,
+            ticketMedio: metricsData.ticketMedio || 0,
+            lastOrderDate: metricsData.lastOrderDate || null,
+            updatedAt: new Date().toISOString()
+        };
+
+        // O merge: true garante que se já existir algo lá, não será apagado
+        await setDoc(customerRef, payload, { merge: true });
+        console.log(`[CRM] Gaveta criada/atualizada silenciosamente para: ${clientKey}`);
+    } catch (error) {
+        console.error("Erro ao salvar cliente no banco:", error);
+    }
 };
