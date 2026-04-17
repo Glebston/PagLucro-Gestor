@@ -21,7 +21,7 @@ import {
 import { runDatabaseMigration } from '../admin/migrationTools.js';
 
 // 4. CRM - Ficha de Ouro (Cérebro e Templates)
-import { getCustomerMetrics } from '../services/customerService.js';
+import { getCustomerMetrics, getCustomerProfile, saveCustomerProfile } from '../services/customerService.js';
 import { 
     customerDashboardModalTemplateHTML, 
     customerHistoryRowTemplateHTML, 
@@ -493,9 +493,45 @@ export function initializeOrderListeners(UI, deps) {
         // ==========================================================
         if (btn.classList.contains('open-customer-profile-btn')) {
             e.stopPropagation(); // Evita conflitos de clique
+            
+            // UX: Feedback visual de carregamento (Avisa que a formiguinha tá trabalhando)
+            const originalBtnHtml = btn.innerHTML;
+            btn.innerHTML = `<svg class="animate-spin h-5 w-5 text-yellow-500 drop-shadow-sm" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+            btn.disabled = true;
+
             const clientKey = btn.dataset.phone;
             const allOrders = services.getAllOrders();
-            const metrics = getCustomerMetrics(clientKey, allOrders);
+            
+            // MÁGICA 1: Identificação Segura da Empresa
+            let companyId = auth.currentUser.uid;
+            try {
+                const mappingSnap = await getDoc(doc(db, "user_mappings", auth.currentUser.uid));
+                if (mappingSnap.exists()) companyId = mappingSnap.data().companyId;
+            } catch(err) { console.warn("Erro ao buscar companyId", err); }
+
+            // MÁGICA 2: O Motor Formiguinha verifica o Firebase
+            let profileData = await getCustomerProfile(companyId, clientKey);
+            let metrics = null;
+
+            if (!profileData) {
+                // Cliente Antigo sem gaveta: Calcula usando a memória local e salva silenciosamente
+                metrics = getCustomerMetrics(clientKey, allOrders);
+                await saveCustomerProfile(companyId, clientKey, metrics);
+            } else {
+                // Cliente Atualizado: Puxa os R$ do banco de dados (rápido) e só monta a lista visual
+                const historyOnly = getCustomerMetrics(clientKey, allOrders).history; 
+                metrics = {
+                    ltv: profileData.ltv,
+                    totalOrders: profileData.totalOrders,
+                    ticketMedio: profileData.ticketMedio,
+                    lastOrderDate: profileData.lastOrderDate,
+                    history: historyOnly
+                };
+            }
+
+            // Restaura o botão original do bonequinho
+            btn.innerHTML = originalBtnHtml;
+            btn.disabled = false;
             
             // 1. Cria ou recupera o Modal no DOM (Lazy Loading)
             let modal = document.getElementById('customerDashboardModal');
