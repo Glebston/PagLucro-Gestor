@@ -1,71 +1,122 @@
 // functions/index.js
 // ========================================================
-// CÉREBRO DO PREENCHIMENTO TURBO (Backend) - PagLucro Gestor
+// CÉREBRO DA IA (Preenchimento Turbo) + CRM ESCALÁVEL (Vigia Noturno)
 // ========================================================
 
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onRequest } = require("firebase-functions/v2/https");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
-const { getFirestore } = require("firebase-admin/firestore");
-const { initializeApp } = require("firebase-admin/app");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { defineSecret } = require("firebase-functions/params");
+const { GoogleGenerativeAI, SchemaType } = require("@google/generative-ai");
+const admin = require("firebase-admin");
 
-// Inicializa o App do Administrador para termos acesso ao Banco de Dados (Firestore)
-initializeApp();
-const db = getFirestore();
+// Inicializa o App do Administrador para acesso ao Banco de Dados
+admin.initializeApp();
+const db = admin.firestore(); // Variável global do banco de dados usada pelo CRM
 
-/**
- * Função Segura que processa o texto do WhatsApp usando IA.
- * Ela é chamada diretamente pelo seu Front-end via 'httpsCallable'.
- */
-exports.parseOrderText = onCall({ region: "us-central1" }, async (request) => {
-    
-    // 1. Verificação de Segurança: Somente usuários logados podem usar a IA
-    if (!request.auth) {
-        throw new HttpsError("unauthenticated", "Acesso negado. Usuário não autenticado.");
-    }
+// Define o segredo para a chave API (Usado pela IA)
+const geminiApiKey = defineSecret("GEMINI_API_KEY");
 
-    const rawText = request.data.text;
-    if (!rawText) {
-        throw new HttpsError("invalid-argument", "Nenhum texto foi fornecido para análise.");
-    }
-
+// ==========================================================
+// 1. PREENCHIMENTO TURBO (Inteligência Artificial - Gemini 2.0 Flash)
+// ==========================================================
+exports.preenchimentoTurbo = onRequest({ secrets: [geminiApiKey], cors: true }, async (req, res) => {
     try {
-        // 2. Busca o Prompt Mestre e a Chave da API no seu Firestore
-        // (Coleção: admin_settings -> Documento: ai_config)
-        const aiConfigDoc = await db.collection("admin_settings").doc("ai_config").get();
-
-        if (!aiConfigDoc.exists) {
-            throw new HttpsError("not-found", "Configurações de IA não encontradas no sistema.");
-        }
-
-        const { promptMestre, apiKey } = aiConfigDoc.data();
-
-        // 3. Acorda a Inteligência Artificial do Google (Gemini)
+        const { prompt, configDocumentPath } = req.body;
+        const apiKey = geminiApiKey.value();
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        // 4. Monta o pacote de instruções final
-        const promptFinal = `${promptMestre}\n\nTEXTO PARA ANALISAR:\n"${rawText}"`;
+        // Busca o documento completo no Firestore
+        const configDoc = await admin.firestore().doc(configDocumentPath).get();
+        if (!configDoc.exists) throw new Error("Configuração não encontrada no Firestore.");
+        
+        // CORREÇÃO 1: Salva os dados do banco em uma variável aiConfig
+        const aiConfig = configDoc.data();
+        // Puxa as instruções (suporta tanto se você salvou como systemInstruction ou masterPrompt)
+        const instrucaoMestre = aiConfig.systemInstruction || aiConfig.masterPrompt;
 
-        // 5. Dispara a análise e aguarda a resposta
-        const result = await model.generateContent(promptFinal);
-        const response = await result.response;
-        const responseText = response.text();
+        // A "Algema" de Segurança: Define a estrutura exata para a IA
+        const schemaDasPecas = {
+            type: SchemaType.ARRAY,
+            description: "Lista de peças. Agrupe tamanhos do mesmo modelo e tecido no mesmo objeto.",
+            items: {
+                type: SchemaType.OBJECT,
+                properties: {
+                    type: { type: SchemaType.STRING, description: "Modelo (Ex: Camisa)." },
+                    material: { type: SchemaType.STRING, description: "Tecido (Ex: Malha Fria)." },
+                    partInputType: { type: SchemaType.STRING, description: "'comum' ou 'detalhado'." },
+                    sizes: {
+                        type: SchemaType.OBJECT,
+                        description: "Quantidades por categoria (Modo comum).",
+                        properties: {
+                            "Normal": { 
+                                type: SchemaType.OBJECT,
+                                properties: {
+                                    "PP": { type: SchemaType.NUMBER }, "P": { type: SchemaType.NUMBER },
+                                    "M": { type: SchemaType.NUMBER }, "G": { type: SchemaType.NUMBER },
+                                    "GG": { type: SchemaType.NUMBER }, "XG": { type: SchemaType.NUMBER }
+                                }
+                            },
+                            "Baby Look": { 
+                                type: SchemaType.OBJECT,
+                                properties: {
+                                    "PP": { type: SchemaType.NUMBER }, "P": { type: SchemaType.NUMBER },
+                                    "M": { type: SchemaType.NUMBER }, "G": { type: SchemaType.NUMBER },
+                                    "GG": { type: SchemaType.NUMBER }, "XG": { type: SchemaType.NUMBER }
+                                }
+                            },
+                            "Infantil": { 
+                                type: SchemaType.OBJECT,
+                                properties: {
+                                    "2 anos": { type: SchemaType.NUMBER }, "4 anos": { type: SchemaType.NUMBER },
+                                    "6 anos": { type: SchemaType.NUMBER }, "8 anos": { type: SchemaType.NUMBER },
+                                    "10 anos": { type: SchemaType.NUMBER }, "12 anos": { type: SchemaType.NUMBER }
+                                }
+                            }
+                        },
+                        required: ["Normal", "Baby Look", "Infantil"]
+                    },
+                    details: {
+                        type: SchemaType.ARRAY,
+                        description: "Nomes e números (Modo detalhado).",
+                        items: {
+                            type: SchemaType.OBJECT,
+                            properties: {
+                                name: { type: SchemaType.STRING },
+                                number: { type: SchemaType.STRING },
+                                size: { type: SchemaType.STRING, description: "Ex: 'M (Normal)'" }
+                            },
+                            required: ["name", "number", "size"]
+                        }
+                    }
+                },
+                required: ["type", "material", "partInputType", "sizes", "details"]
+            }
+        };
 
-        // 6. Limpeza de Segurança (Remove marcações extras que a IA pode enviar)
-        const cleanJson = responseText.replace(/```json|```/g, "").trim();
+        // Busca o nome do modelo direto do Firestore (dinâmico)
+        const modelName = aiConfig.aiModel || "gemini-2.0-flash"; 
 
-        // Devolve o JSON pronto para o formulário do recepcionista
-        return JSON.parse(cleanJson);
+        const model = genAI.getGenerativeModel({
+            model: modelName,
+            systemInstruction: instrucaoMestre, // CORREÇÃO 3: Agora a IA recebe as regras!
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: schemaDasPecas, // CORREÇÃO 2: Nome corrigido para schemaDasPecas
+            },
+        });
+
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+        res.status(200).json(JSON.parse(responseText));
 
     } catch (error) {
-        console.error("🔥 ERRO NO CÉREBRO DA IA:", error);
-        throw new HttpsError("internal", "Ocorreu um erro ao processar o texto. Verifique o log do servidor.");
+        console.error("Erro na Function:", error);
+        res.status(500).send(error.message);
     }
 });
 
 // ==========================================================
-// [NOVO] MOTOR DE CRM ESCALÁVEL (O Vigia Noturno)
+// 2. MOTOR DE CRM ESCALÁVEL (O Vigia Noturno)
 // Responsabilidade: Manter a "Ficha de Ouro" atualizada automaticamente
 // ==========================================================
 
@@ -104,7 +155,7 @@ exports.atualizarFichaDeOuro = onDocumentWritten("companies/{companyId}/orders/{
     if (!clientKey) return null;
 
     try {
-        // Usa o 'db' que já está inicializado no topo deste arquivo de produção
+        // Usa o 'db' global inicializado no topo do arquivo (compatível com admin.firestore())
         const ordersRef = db.collection(`companies/${companyId}/orders`);
         
         const snapshotPhone = await ordersRef.where("clientPhone", "==", clientKey).get();
