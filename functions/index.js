@@ -328,3 +328,99 @@ exports.forcarBackupManual = onCall({ cors: true }, async (request) => {
 
     return resultado; // Retorna para o frontend (admin.js) se deu certo ou falhou
 });
+
+// ==========================================================
+// [NOVO] FLUXO DE CADASTRO UNIFICADO (Super Admin)
+// Responsabilidade: Criar o usuário no Auth e o perfil no Firestore em uma única transação
+// ==========================================================
+exports.criarNovaEmpresaAdmin = onCall({ cors: true }, async (request) => {
+    // 1. Trava de Segurança Mestra: Apenas os e-mails oficiais da administração podem acionar isso
+    const adminEmails = ["admin@paglucro.com", "saianolucrobr@gmail.com"];
+    
+    if (!request.auth || !adminEmails.includes(request.auth.token.email)) {
+        throw new Error("Acesso negado. Apenas administradores supremos podem criar novas empresas.");
+    }
+
+    const { email, companyName, planId, priceValue, uidManuallyProvided } = request.data;
+
+    if (!email || !companyName) {
+        throw new Error("Dados incompletos. E-mail e Nome da Empresa são obrigatórios.");
+    }
+
+    try {
+        const db = admin.firestore();
+        
+        // 2. Criação do Usuário no Firebase Auth
+        // Geramos uma senha temporária padrão que o cliente usará no primeiro acesso
+        const passwordTemporaria = "Mudar123!";
+        
+        const userParams = {
+            email: email,
+            password: passwordTemporaria,
+            displayName: companyName,
+        };
+
+        // Se você preencher o UID no painel, ele usa o seu.
+        // Se deixar em branco (Recomendado), o Firebase gera um automático, 100% à prova de colisões.
+        if (uidManuallyProvided && String(uidManuallyProvided).trim() !== "") {
+            userParams.uid = String(uidManuallyProvided).trim();
+        }
+
+        // Executa a criação no Auth
+        const userRecord = await admin.auth().createUser(userParams);
+        const finalUid = userRecord.uid;
+
+        // 3. Transação no Banco de Dados (Firestore)
+        const batch = db.batch();
+
+        // Cria a gaveta da empresa
+        const companyRef = db.doc(`companies/${finalUid}`);
+        batch.set(companyRef, {
+            companyName: companyName,
+            email: email,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            isBlocked: false,
+            isDeleted: false,
+            subscription: {
+                planId: (planId || 'essencial').toLowerCase(),
+                status: 'active',
+                price: parseFloat(priceValue) || 0,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            },
+            bankBalanceConfig: { initialBalance: 0 }
+        });
+
+        // Cria o mapeamento para garantir que o dono tenha acesso
+        const mappingRef = db.doc(`user_mappings/${finalUid}`);
+        batch.set(mappingRef, { 
+            companyId: finalUid, 
+            email: email,
+            role: 'owner' // Define como Gestor Supremo da própria fábrica
+        });
+
+        // Comita tudo de uma vez
+        await batch.commit();
+
+        console.log(`[ADMIN CREATE] Empresa ${companyName} criada com sucesso. UID: ${finalUid}`);
+
+        return { 
+            sucesso: true, 
+            uid: finalUid, 
+            senhaTemporaria: passwordTemporaria,
+            message: "Empresa criada e vinculada com sucesso!" 
+        };
+
+    } catch (error) {
+        console.error("[ERRO ADMIN CREATE] Falha ao criar empresa:", error);
+        
+        // Formata a mensagem de erro do Firebase Auth para ficar amigável na sua tela
+        if (error.code === 'auth/email-already-exists') {
+            throw new Error("Este e-mail já está cadastrado no sistema.");
+        }
+        if (error.code === 'auth/invalid-email') {
+            throw new Error("O formato do e-mail é inválido.");
+        }
+        
+        throw new Error(error.message);
+    }
+});
