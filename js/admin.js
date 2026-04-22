@@ -1,7 +1,7 @@
 // js/admin.js
-// =========================================================
+// ========================================================
 // MÓDULO ADMINISTRATIVO V3.2 (Com Gestão de Planos SaaS)
-// =========================================================
+// ========================================================
 
 import { db, functions } from './firebaseConfig.js';
 import { 
@@ -761,48 +761,51 @@ async function submitNewCompanyFromModal() {
     const priceInput = document.getElementById('newCompanyPrice').value;
     const priceValue = priceInput ? parseFloat(priceInput) : 0;
 
-    if (!uid || !email || !name) {
-        alert("Por favor, preencha todos os campos obrigatórios (UID, Email e Nome).");
+    // [MODIFICADO] O UID não é mais obrigatório! Se você deixar em branco, 
+    // a nossa Function vai gerar um perfeito automaticamente.
+    if (!email || !name) {
+        alert("Por favor, preencha os campos obrigatórios (Email e Nome da Fábrica). O UID pode ficar em branco.");
         return;
     }
 
     const btn = document.getElementById('submitNewCompanyBtn');
     const originalText = btn.innerHTML;
-    btn.innerHTML = 'Salvando...';
+    btn.innerHTML = '<span class="animate-pulse">Criando Fábrica...</span>';
     btn.disabled = true;
 
     await createNewCompany(uid, email, name, planId, priceValue);
 
-    // Fecha modal e reseta botão após sucesso
+    // Fecha modal e reseta botão após tentar
     document.getElementById('adminCreateCompanyModal').classList.add('hidden');
     btn.innerHTML = originalText;
     btn.disabled = false;
 }
+
 async function createNewCompany(uid, email, name, planId, priceValue = 0) {
     try {
-        const batch = writeBatch(db);
-        const companyRef = doc(db, "companies", uid);
-        batch.set(companyRef, {
-            companyName: name,
+        // [NOVO] Aciona o Motor de Cadastro no Backend (Cloud Function)
+        const callCriarEmpresa = httpsCallable(functions, 'criarNovaEmpresaAdmin');
+        
+        const result = await callCriarEmpresa({
             email: email,
-            createdAt: serverTimestamp(),
-            isBlocked: false,
-            isDeleted: false,
-            subscription: {
-                planId: planId.toLowerCase(),
-                status: 'active',
-                price: priceValue // NOVO CAMPO FINANCEIRO
-            },
-            bankBalanceConfig: { initialBalance: 0 }
+            companyName: name,
+            planId: planId,
+            priceValue: priceValue,
+            uidManuallyProvided: uid // Passa o UID se você digitou, ou passa vazio para o Google gerar
         });
-        const mappingRef = doc(db, "user_mappings", uid);
-        batch.set(mappingRef, { companyId: uid, email: email });
-        await batch.commit();
-        alert(`✅ Empresa criada com plano ${planId.toUpperCase()}!`);
-        loadUsers();
+
+        if (result.data && result.data.sucesso) {
+            // Sucesso Absoluto! Mostra a senha provisória na tela.
+            alert(`🏆 FÁBRICA CRIADA COM SUCESSO!\n\nA empresa já tem acesso imediato ao sistema.\n\nE-mail: ${email}\nSenha Provisória: ${result.data.senhaTemporaria}\n\nCopie essa senha e envie para o cliente. Ele poderá trocar depois.`);
+            loadUsers(); // Recarrega a tabela e a empresa nova já vai aparecer
+        } else {
+            throw new Error(result.data.message || "Falha desconhecida no backend.");
+        }
     } catch (error) {
-        console.error("Erro ao criar:", error);
-        alert(`Erro: ${error.message}`);
+        console.error("Erro na Criação da Empresa:", error);
+        // Limpa mensagens de erro internas do Firebase para ficar amigável
+        const msg = error.message.replace('INTERNAL', '').trim();
+        alert(`❌ Erro ao criar empresa:\n\n${msg}`);
     }
 }
 
