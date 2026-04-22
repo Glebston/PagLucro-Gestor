@@ -3,7 +3,7 @@
 // MÓDULO ADMINISTRATIVO V3.2 (Com Gestão de Planos SaaS)
 // ========================================================
 
-import { db } from './firebaseConfig.js';
+import { db, functions } from './firebaseConfig.js';
 import { 
     collection, 
     getDocs, 
@@ -18,6 +18,7 @@ import {
     getDoc,
     getCountFromServer
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
 
 let usersCache = [];
 
@@ -108,7 +109,7 @@ async function loadUsers() {
             const planId = data.subscription?.planId || 'essencial';
             const subPrice = data.subscription?.price || 0; // Captura o valor financeiro
 
-            usersCache.push({
+           usersCache.push({
                 id: docSnap.id,
                 name: data.companyName || "Empresa (Sem Nome)",
                 email: data.email || "Email não registrado",
@@ -121,8 +122,23 @@ async function loadUsers() {
                 dueDate: data.dueDate || null,
                 isLifetime: data.isLifetime || false,
                 paymentHistory: data.paymentHistory || [],
-                internalNotes: data.internalNotes || ""
+                internalNotes: data.internalNotes || "",
+                backupStatus: "pendente" // [NOVO] Inicia como pendente, carregaremos abaixo
             });
+        });
+
+        // [NOVO] Busca o status de backup de TODAS as empresas de uma vez
+        const backupsSnapshot = await getDocs(collection(db, "admin_data/backups/logs"));
+        const backupStatusMap = {};
+        backupsSnapshot.forEach(logDoc => {
+            backupStatusMap[logDoc.id] = logDoc.data().status; // 'sucesso' ou 'falha'
+        });
+
+        // Atualiza o cache com o status real do backup
+        usersCache.forEach(user => {
+            if (backupStatusMap[user.id]) {
+                user.backupStatus = backupStatusMap[user.id];
+            }
         });
 
         usersCache.sort((a, b) => b.createdAt - a.createdAt);
@@ -220,13 +236,29 @@ function renderTable(users) {
                 </div>
             </td>
 
-            <td class="p-4 align-top text-center">
-                <label class="relative inline-flex items-center cursor-pointer" title="Bloquear Acesso">
-                    <input type="checkbox" class="sr-only peer toggle-block-btn" data-id="${user.id}" ${user.isBlocked ? 'checked' : ''}>
-                    <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
-                </label>
-                <div class="text-[10px] mt-1 font-medium ${user.isBlocked ? 'text-red-600' : 'text-green-600'}">
-                    ${user.isBlocked ? 'BLOQUEADO' : 'ATIVO'}
+            <td class="p-4 align-top text-center flex flex-col items-center gap-2">
+                <div>
+                    <label class="relative inline-flex items-center cursor-pointer" title="Bloquear Acesso">
+                        <input type="checkbox" class="sr-only peer toggle-block-btn" data-id="${user.id}" ${user.isBlocked ? 'checked' : ''}>
+                        <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+                    </label>
+                    <div class="text-[10px] mt-1 font-medium ${user.isBlocked ? 'text-red-600' : 'text-green-600'}">
+                        ${user.isBlocked ? 'BLOQUEADO' : 'ATIVO'}
+                    </div>
+                </div>
+
+                <div class="mt-2 w-full pt-2 border-t border-gray-100 flex flex-col items-center gap-1">
+                    <div class="text-[10px] font-bold ${user.backupStatus === 'sucesso' ? 'text-green-600' : user.backupStatus === 'falha' ? 'text-red-600' : 'text-gray-400'} flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        ${user.backupStatus === 'sucesso' ? 'BKP OK' : user.backupStatus === 'falha' ? 'BKP FALHOU' : 'SEM BKP'}
+                    </div>
+                    ${user.backupStatus === 'falha' ? `
+                        <button class="force-backup-btn mt-1 bg-red-50 hover:bg-red-100 text-red-600 text-[9px] font-bold py-1 px-2 rounded border border-red-200 transition" data-id="${user.id}">
+                            Forçar Backup
+                        </button>
+                    ` : ''}
                 </div>
             </td>
 
@@ -382,6 +414,36 @@ function attachDynamicListeners() {
             const button = e.target.closest('button');
             const id = button.dataset.id;
             await fetchOrderCount(id, button);
+        });
+    });
+
+    // [NOVO] Listener do Plano de Contingência (Forçar Backup)
+    document.querySelectorAll('.force-backup-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const button = e.target.closest('button');
+            const companyId = button.dataset.id;
+            const originalText = button.innerHTML;
+            
+            button.innerHTML = '<span class="animate-pulse">Gerando...</span>';
+            button.disabled = true;
+
+            try {
+                // Aciona a Cloud Function que acabamos de fazer o deploy
+                const forceBackup = httpsCallable(functions, 'forcarBackupManual');
+                const result = await forceBackup({ companyId: companyId });
+
+                if (result.data && result.data.sucesso) {
+                    alert(`✅ Backup de emergência gerado com sucesso para a empresa!`);
+                    loadUsers(); // Recarrega a tabela para o badge ficar verde
+                } else {
+                    throw new Error(result.data.message || "Falha desconhecida no backend.");
+                }
+            } catch (error) {
+                console.error("Erro ao forçar backup:", error);
+                alert(`Erro crítico ao tentar forçar o backup:\n${error.message}`);
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }
         });
     });
 }
@@ -877,10 +939,12 @@ function applyFilters() {
     renderTable(filtered);
 }
 
-// --- DASHBOARD FINANCEIRO ---
+// --- DASHBOARD FINANCEIRO E SISTEMA ---
 function updateFinancialDashboard() {
     let mrrTotal = 0;
     let overdueTotal = 0;
+    let backupsOk = 0;
+    let backupsFail = 0;
 
     usersCache.forEach(user => {
         if (user.isDeleted) return;
@@ -897,11 +961,19 @@ function updateFinancialDashboard() {
         if (status === 'expired' && !user.isBlocked) {
             overdueTotal += price;
         }
+
+        // Soma Monitoramento de Contingência (Robô Noturno)
+        if (user.backupStatus === 'sucesso') backupsOk++;
+        if (user.backupStatus === 'falha') backupsFail++;
     });
 
     const mrrEl = document.getElementById('dashMrrTotal');
     const overdueEl = document.getElementById('dashOverdueTotal');
+    const bkpOkEl = document.getElementById('dashBackupsOk');
+    const bkpFailEl = document.getElementById('dashBackupsFail');
 
     if (mrrEl) mrrEl.textContent = `R$ ${mrrTotal.toFixed(2).replace('.', ',')}`;
     if (overdueEl) overdueEl.textContent = `R$ ${overdueTotal.toFixed(2).replace('.', ',')}`;
+    if (bkpOkEl) bkpOkEl.textContent = backupsOk;
+    if (bkpFailEl) bkpFailEl.textContent = backupsFail;
 }
