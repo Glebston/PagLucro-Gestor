@@ -4,6 +4,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getStorage } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+import { getFunctions } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-functions.js";
 
 // --- ATENÇÃO: CONFIGURAÇÃO PARA AMBIENTE DE PRODUÇÃO ---
 const firebaseConfig = {
@@ -20,10 +21,11 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app); // Inicialização do cofre nativo
+const functions = getFunctions(app); // [NOVO] Ativando o motor do Robô Noturno e Botão de Pânico
 
 // [NOVO] App Secundário: Usado exclusivamente para criar a conta da equipe
 // de produção em segundo plano, sem derrubar a sua sessão atual.
 const secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
 const secondaryAuth = getAuth(secondaryApp);
 
-export { db, auth, secondaryAuth, storage };
+export { db, auth, secondaryAuth, storage, functions }; // [NOVO] Exportando functions para o admin.js
