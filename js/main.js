@@ -606,32 +606,51 @@ const cacheBuster = `?v=6.4.0_FORCE_REFRESH`;
             reader.onload = async (e) => {
                 try {
                     const data = JSON.parse(e.target.result);
-                    if (!data || (!data.orders && !data.transactions)) throw new Error("Formato inválido");
+                    // [MODIFICADO] Removemos a trava estrita de "transactions" pois o novo backup pode ter outras gavetas
+                    if (!data || typeof data !== 'object') throw new Error("Formato inválido");
                     
                     const choice = await UI.showConfirmModal("Importar Backup:", "Adicionar aos existentes", "Substituir tudo");
                     if (choice === null) return;
                     
                     UI.showInfoModal("Processando restauração...");
                     const batch = writeBatch(db);
-                    const ordersRef = collection(db, `companies/${userCompanyId}/orders`);
-                    const transRef = collection(db, `companies/${userCompanyId}/transactions`);
 
-                    if (!choice) { // Substituir tudo
-                        getAllOrders().forEach(o => batch.delete(doc(ordersRef, o.id)));
-                        getAllTransactions().forEach(t => batch.delete(doc(transRef, t.id)));
+                    if (!choice) { // Substituir tudo (Limpa ordens e transações da memória atual)
+                        getAllOrders().forEach(o => batch.delete(doc(db, `companies/${userCompanyId}/orders`, o.id)));
+                        getAllTransactions().forEach(t => batch.delete(doc(db, `companies/${userCompanyId}/transactions`, t.id)));
                     }
 
-                    (data.orders || []).forEach(o => batch.set(doc(ordersRef), o));
-                    (data.transactions || []).forEach(t => batch.set(doc(transRef), t));
+                    // [NOVO] Lógica Inteligente Híbrida: Lê tanto o formato Antigo (Array) quanto o Premium (Dicionário)
+                    const colecoesParaRestaurar = ["orders", "transactions", "customers", "catalog", "settings"];
+
+                    colecoesParaRestaurar.forEach(colName => {
+                        const colData = data[colName];
+                        if (colData) {
+                            // Se for o Formato Premium do Robô Noturno (Objeto/Dicionário com chaves exatas)
+                            if (typeof colData === 'object' && !Array.isArray(colData)) {
+                                Object.entries(colData).forEach(([docId, docData]) => {
+                                    batch.set(doc(db, `companies/${userCompanyId}/${colName}`, docId), docData);
+                                });
+                            }
+                            // Se for o Formato Antigo do Front-end (Array/Lista)
+                            else if (Array.isArray(colData)) {
+                                colData.forEach(item => {
+                                    const ref = item.id ? doc(db, `companies/${userCompanyId}/${colName}`, item.id) : doc(collection(db, `companies/${userCompanyId}/${colName}`));
+                                    batch.set(ref, item);
+                                });
+                            }
+                        }
+                    });
                     
                     await batch.commit();
-                    UI.showInfoModal("Dados restaurados com sucesso!");
+                    UI.showInfoModal("Dados restaurados com sucesso! Atualizando interface...");
+                    setTimeout(() => window.location.reload(), 2000); // Força refresh para puxar os novos dados reais
                 } catch (error) {
-                    console.error(error);
+                    console.error("Erro na restauração híbrida:", error);
                     UI.showInfoModal("Erro ao processar arquivo de backup.");
                 }
             };
-            reader.readText(file);
+            reader.readAsText(file);
             event.target.value = '';
         };
 
