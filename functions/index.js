@@ -3,8 +3,9 @@
 // CÉREBRO DA IA (Preenchimento Turbo) + CRM ESCALÁVEL (Vigia Noturno)
 // ========================================================
 
-const { onRequest } = require("firebase-functions/v2/https");
+const { onRequest, onCall } = require("firebase-functions/v2/https");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 const { GoogleGenerativeAI, SchemaType } = require("@google/generative-ai");
 const admin = require("firebase-admin");
@@ -206,4 +207,124 @@ exports.atualizarFichaDeOuro = onDocumentWritten("companies/{companyId}/orders/{
         console.error(`[ERRO VIGIA NOTURNO] Falha ao atualizar CRM para ${clientKey}:`, error);
         return null;
     }
+});
+
+// ==========================================================
+// [NOVO] PLANO DE CONTINGÊNCIA - ROBÔ NOTURNO DE BACKUPS
+// Responsabilidade: Realizar backup diário e registrar o status para o Painel Admin
+// ==========================================================
+
+// Função interna que faz o trabalho pesado do backup para uma empresa específica
+const executarBackupEmpresa = async (companyId, db, bucket) => {
+    try {
+        const colecoes = ["orders", "customers", "catalog", "settings"];
+        const backupData = {};
+
+        // Extrai os dados de cada coleção
+        for (const col of colecoes) {
+            const snapshot = await db.collection(`companies/${companyId}/${col}`).get();
+            backupData[col] = {};
+            snapshot.forEach(doc => {
+                backupData[col][doc.id] = doc.data();
+            });
+        }
+
+        // Monta o arquivo JSON
+        const dataAtual = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        const fileName = `backups/${companyId}/backup_${dataAtual}.json`;
+        const file = bucket.file(fileName);
+        
+        await file.save(JSON.stringify(backupData), {
+            contentType: "application/json",
+        });
+
+        // Registra o SUCESSO para o Super Admin ver
+        await db.doc(`admin_data/backups/logs/${companyId}`).set({
+            status: "sucesso",
+            lastBackup: new Date().toISOString(),
+            message: `Backup de ${dataAtual} concluído.`,
+            fileName: fileName
+        });
+
+        return { sucesso: true, message: "Backup realizado com sucesso." };
+
+    } catch (error) {
+        console.error(`[ERRO DE BACKUP] Empresa ${companyId}:`, error);
+        
+        // Registra a FALHA para o Super Admin ver
+        await db.doc(`admin_data/backups/logs/${companyId}`).set({
+            status: "falha",
+            lastBackup: new Date().toISOString(),
+            message: `Erro: ${error.message}`
+        });
+
+        return { sucesso: false, message: error.message };
+    }
+};
+
+// 1. O Agendador Automático (Roda todo dia às 03:00 da manhã)
+exports.roboNoturnoBackup = onSchedule({
+    schedule: "0 3 * * *",
+    timeZone: "America/Sao_Paulo",
+    memory: "512MiB"
+}, async (event) => {
+    const db = admin.firestore();
+    const bucket = admin.storage().bucket();
+    let sucessos = 0;
+    let falhas = 0;
+
+    console.log("[ROBÔ NOTURNO] Iniciando varredura de backups...");
+
+    try {
+        // Busca todas as empresas ativas
+        const companiesSnapshot = await db.collection("companies").get();
+        
+        for (const doc of companiesSnapshot.docs) {
+            const companyId = doc.id;
+            const resultado = await executarBackupEmpresa(companyId, db, bucket);
+            if (resultado.sucesso) sucessos++;
+            else falhas++;
+        }
+
+        // Log geral para o topo do seu painel Admin
+        const dataAtual = new Date().toISOString().split('T')[0];
+        await db.doc(`admin_data/backups/relatorios_diarios/${dataAtual}`).set({
+            data: dataAtual,
+            totalEmpresas: companiesSnapshot.size,
+            sucessos: sucessos,
+            falhas: falhas,
+            executadoEm: new Date().toISOString()
+        });
+
+        // Notificação Ativa (Alerta se houver falhas)
+        if (falhas > 0) {
+            console.error(`[ALERTA ADMIN] O Robô Noturno finalizou com ${falhas} falhas! Verifique o painel.`);
+        } else {
+            console.log(`[ROBÔ NOTURNO] Missão cumprida. ${sucessos} empresas salvas.`);
+        }
+
+    } catch (error) {
+        console.error("[ERRO FATAL] O Robô Noturno falhou ao iniciar:", error);
+    }
+});
+
+// 2. O Botão de Pânico (Acionado manualmente pelo seu Super Painel)
+exports.forcarBackupManual = onCall({ cors: true }, async (request) => {
+    // Segurança: Garantir que quem está chamando está logado
+    if (!request.auth) {
+        throw new Error("Acesso negado. Usuário não autenticado.");
+    }
+
+    const { companyId } = request.data;
+    if (!companyId) {
+        throw new Error("ID da empresa não fornecido.");
+    }
+
+    const db = admin.firestore();
+    const bucket = admin.storage().bucket();
+
+    console.log(`[ADMIN FORCE] Iniciando backup manual para: ${companyId}`);
+    const resultado = await executarBackupEmpresa(companyId, db, bucket);
+
+    return resultado; // Retorna para o frontend (admin.js) se deu certo ou falhou
 });
