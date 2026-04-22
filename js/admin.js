@@ -637,6 +637,39 @@ async function openClientDetails(companyId) {
         }, 1000);
     };
 
+    // [NOVO] Liga o Botão de Restauração de Emergência
+    const btnRestore = document.getElementById('btnAdminRestoreBackup');
+    // Removemos os eventos anteriores clonando o botão (para evitar disparos duplos ao abrir clientes diferentes)
+    const newBtnRestore = btnRestore.cloneNode(true);
+    btnRestore.parentNode.replaceChild(newBtnRestore, btnRestore);
+
+    newBtnRestore.addEventListener('click', async () => {
+        const confirmacao = confirm(`🚨 ALERTA DE EMERGÊNCIA 🚨\n\nVocê está prestes a restaurar os dados da empresa:\n${user.name}\n\nIsso pegará o ÚLTIMO BACKUP válido da madrugada passada e sobrescreverá o banco de dados atual.\nTudo o que a empresa fez HOJE será perdido.\n\nDeseja realmente realizar a injeção do backup?`);
+        
+        if (confirmacao) {
+            const originalHtml = newBtnRestore.innerHTML;
+            newBtnRestore.innerHTML = '<span class="animate-pulse">Injetando Dados... Aguarde.</span>';
+            newBtnRestore.disabled = true;
+
+            try {
+                const callRestaurar = httpsCallable(functions, 'restaurarBackupEmpresa');
+                const resultado = await callRestaurar({ companyId: companyId });
+
+                if (resultado.data && resultado.data.sucesso) {
+                    alert(`✅ MILAGRE REALIZADO!\n\n${resultado.data.message}\n\nA fábrica do cliente voltou à vida.`);
+                } else {
+                    throw new Error("Falha silenciosa na restauração.");
+                }
+            } catch (error) {
+                console.error("Erro ao restaurar backup:", error);
+                alert(`❌ Falha Crítica ao tentar restaurar:\n${error.message}`);
+            } finally {
+                newBtnRestore.innerHTML = originalHtml;
+                newBtnRestore.disabled = false;
+            }
+        }
+    });
+
     modal.classList.remove('hidden');
 }
 
