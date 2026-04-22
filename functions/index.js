@@ -1,7 +1,7 @@
 // functions/index.js
-// ========================================================
+// ===================================================================
 // CÉREBRO DA IA (Preenchimento Turbo) + CRM ESCALÁVEL (Vigia Noturno)
-// ========================================================
+// ===================================================================
 
 const { onRequest, onCall } = require("firebase-functions/v2/https");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
