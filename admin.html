@@ -63,7 +63,7 @@
 
     <div id="adminPanelContainer" class="w-full max-w-7xl mx-auto bg-white rounded-xl shadow-md flex flex-col overflow-hidden mb-8">
         
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-0 border-b divide-y sm:divide-y-0 sm:divide-x divide-gray-200 bg-white">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-0 border-b divide-y sm:divide-y-0 sm:divide-x divide-gray-200 bg-white">
             <div class="p-6 flex items-center justify-between hover:bg-gray-50 transition">
                 <div>
                     <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-2">
@@ -78,6 +78,22 @@
                         <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-sm"></span> Dinheiro na Rua
                     </p>
                     <h4 id="dashOverdueTotal" class="text-3xl font-black text-red-600">R$ 0,00</h4>
+                </div>
+            </div>
+            <div class="p-6 flex items-center justify-between hover:bg-gray-50 transition">
+                <div>
+                    <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-blue-500 shadow-sm"></span> Backups Seguros
+                    </p>
+                    <h4 id="dashBackupsOk" class="text-3xl font-black text-blue-600">0</h4>
+                </div>
+            </div>
+            <div class="p-6 flex items-center justify-between hover:bg-gray-50 transition">
+                <div>
+                    <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-orange-500 shadow-sm"></span> Falhas de Backup
+                    </p>
+                    <h4 id="dashBackupsFail" class="text-3xl font-black text-orange-600">0</h4>
                 </div>
             </div>
         </div>
