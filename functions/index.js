@@ -424,3 +424,77 @@ exports.criarNovaEmpresaAdmin = onCall({ cors: true }, async (request) => {
         throw new Error(error.message);
     }
 });
+
+// ==========================================================
+// [NOVO] MOTOR DE RESTAURAÇÃO (A Ponte de Volta)
+// Responsabilidade: Injetar o último backup do Storage de volta no Firestore
+// ==========================================================
+exports.restaurarBackupEmpresa = onCall({ cors: true, memory: "1GiB" }, async (request) => {
+    // Segurança Mestra
+    const adminEmails = ["admin@paglucro.com", "saianolucrobr@gmail.com"];
+    if (!request.auth || !adminEmails.includes(request.auth.token.email)) {
+        throw new Error("Acesso negado. Ação restrita a administradores supremos.");
+    }
+
+    const { companyId } = request.data;
+    if (!companyId) throw new Error("ID da empresa não fornecido.");
+
+    const db = admin.firestore();
+    const bucket = admin.storage().bucket();
+
+    console.log(`[ADMIN RESTORE] Iniciando restauração para: ${companyId}`);
+
+    try {
+        // 1. Busca os arquivos de backup desta empresa no Storage
+        const [files] = await bucket.getFiles({ prefix: `backups/${companyId}/` });
+        if (!files || files.length === 0) {
+            throw new Error("Nenhum backup encontrado no cofre para esta empresa.");
+        }
+
+        // 2. Descobre qual é o arquivo mais recente (ordena pelo nome/data decrescente)
+        files.sort((a, b) => b.name.localeCompare(a.name));
+        const latestBackupFile = files[0];
+
+        console.log(`[ADMIN RESTORE] Restaurando do arquivo: ${latestBackupFile.name}`);
+
+        // 3. Faz o download e abre o "pacote" JSON
+        const [fileContent] = await latestBackupFile.download();
+        const backupData = JSON.parse(fileContent.toString('utf-8'));
+
+        // 4. Inicia a injeção dos dados de volta no banco de dados
+        let batch = db.batch();
+        let operationsCount = 0;
+        const colecoes = ["orders", "customers", "catalog", "settings"];
+
+        for (const col of colecoes) {
+            if (backupData[col]) {
+                for (const [docId, docData] of Object.entries(backupData[col])) {
+                    const docRef = db.doc(`companies/${companyId}/${col}/${docId}`);
+                    batch.set(docRef, docData); // Sobrescreve o que está corrompido com o dado bom
+                    operationsCount++;
+
+                    // O Firebase exige que enviemos de 450 em 450 pacotes
+                    if (operationsCount === 450) {
+                        await batch.commit();
+                        batch = db.batch(); // Inicia um novo lote
+                        operationsCount = 0;
+                    }
+                }
+            }
+        }
+
+        // Comita os dados que sobraram no último lote
+        if (operationsCount > 0) {
+            await batch.commit();
+        }
+
+        return { 
+            sucesso: true, 
+            message: `Restauração concluída! Base de dados recuada para a versão do arquivo: ${latestBackupFile.name.split('/').pop()}` 
+        };
+
+    } catch (error) {
+        console.error(`[ERRO RESTAURAÇÃO FATAL] Empresa ${companyId}:`, error);
+        throw new Error(`Falha ao restaurar: ${error.message}`);
+    }
+});
