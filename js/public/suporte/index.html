@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciando Suporte - PagLucro Gestor</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f9; color: #333; text-align: center; margin: 0; padding: 20px; }
+        .card { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; }
+        .hidden { display: none; }
+        h2 { color: #0056b3; }
+    </style>
+</head>
+<body>
+
+    <div class="card" id="mensagem-pc">
+        <h2>Iniciando Atendimento...</h2>
+        <p>O download da nossa ferramenta de suporte rápido já começou.</p>
+        <p>Assim que terminar, <strong>basta dar dois cliques no arquivo baixado</strong> e me passar o Código e a Senha que aparecerão na tela.</p>
+        <p style="font-size: 0.8em; color: #666; margin-top: 20px;">Não precisa instalar nada.</p>
+    </div>
+
+    <div class="card hidden" id="mensagem-mobile">
+        <h2>Atenção!</h2>
+        <p>Para realizarmos o suporte no seu computador, você precisa abrir este link pelo navegador do seu PC ou Notebook.</p>
+        <p>Envie este link para o WhatsApp Web ou digite no seu computador.</p>
+    </div>
+
+    <script>
+        // Nome exato do arquivo que você colocou na mesma pasta
+        const arquivoSuporte = 'Suporte-PagLucro.exe'; 
+
+        // Detecta se é mobile
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        if (isMobile) {
+            // Mostra aviso para abrir no PC
+            document.getElementById('mensagem-pc').classList.add('hidden');
+            document.getElementById('mensagem-mobile').classList.remove('hidden');
+        } else {
+            // Força o download instantâneo no PC
+            const link = document.createElement('a');
+            link.href = arquivoSuporte;
+            link.download = arquivoSuporte;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
