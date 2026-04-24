@@ -14,14 +14,62 @@ const admin = require("firebase-admin");
 admin.initializeApp();
 const db = admin.firestore(); // Variável global do banco de dados usada pelo CRM
 
-// Define o segredo para a chave API (Usado pela IA)
+// Define o segredo para a chave API
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
+
+// ==========================================================
+// [NOVO] DISJUNTOR DE SOFTWARE (Contingência de Custos)
+// Responsabilidade: Bloquear execuções se o limite diário for atingido ou pausado
+// ==========================================================
+const verificarCota = async (tipo) => {
+    const adminRef = admin.firestore().doc("admin_data/system_limits");
+    const doc = await adminRef.get();
+    
+    // Se o documento não existir, criamos um padrão na hora para não quebrar o sistema
+    if (!doc.exists) {
+        const hoje = new Date().toISOString().split('T')[0];
+        const dadosPadrao = {
+            ai_quota: { limit: 100, used: 0, paused: false, lastReset: hoje },
+            functions_quota: { limit: 1000, used: 0, paused: false, lastReset: hoje }
+        };
+        await adminRef.set(dadosPadrao);
+        return true;
+    }
+
+    const data = doc.data();
+    const cota = data[tipo];
+    const hoje = new Date().toISOString().split('T')[0];
+
+    // 1. Reset Diário Automático
+    if (cota.lastReset !== hoje) {
+        await adminRef.update({
+            [`${tipo}.used`]: 0,
+            [`${tipo}.lastReset`]: hoje
+        });
+        cota.used = 0; // Atualiza na memória para a verificação abaixo
+    }
+
+    // 2. Verificação de Pausa ou Limite atingido
+    if (cota.paused) throw new Error(`[DISJUNTOR] Operação ${tipo} pausada temporariamente pelo Administrador Supremo.`);
+    if (cota.used >= cota.limit) throw new Error(`[DISJUNTOR] Limite diário de segurança atingido para ${tipo}.`);
+
+    // 3. Incrementa o uso de forma atômica
+    await adminRef.update({
+        [`${tipo}.used`]: admin.firestore.FieldValue.increment(1)
+    });
+    return true;
+};
 
 // ==========================================================
 // 1. PREENCHIMENTO TURBO (Inteligência Artificial - Gemini 2.0 Flash)
 // ==========================================================
 exports.preenchimentoTurbo = onRequest({ secrets: [geminiApiKey], cors: true }, async (req, res) => {
     try {
+        // --- INÍCIO DA CIRURGIA DE SEGURANÇA (Disjuntor) ---
+        await verificarCota('ai_quota');
+        await verificarCota('functions_quota');
+        // --- FIM DA CIRURGIA ---
+
         const { prompt, configDocumentPath } = req.body;
         const apiKey = geminiApiKey.value();
         const genAI = new GoogleGenerativeAI(apiKey);
