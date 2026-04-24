@@ -71,6 +71,11 @@ export async function initializeAdminPanel() {
     if (btnSaveAiPrompt) btnSaveAiPrompt.addEventListener('click', handleSaveAiPrompt);
     loadAiMasterPrompt();
 
+    // [NOVO] Inicialização do Disjuntor de Custos (Contingência)
+    const btnSaveDisjuntor = document.getElementById('btnSaveDisjuntor');
+    if (btnSaveDisjuntor) btnSaveDisjuntor.addEventListener('click', handleSaveDisjuntor);
+    loadDisjuntorConfig();
+
     // Listeners do Modal de Detalhes (Permanece, pois o ClientModal ainda é um modal dentro do admin.html)
     const closeDetailsBtn = document.getElementById('closeClientDetailsBtn');
     if (closeDetailsBtn) {
@@ -949,6 +954,85 @@ async function handleSaveAiPrompt() {
     }
 }
 
+// ==========================================================
+// [NOVO] GESTÃO DE CUSTOS (DISJUNTOR DE SOFTWARE)
+// ==========================================================
+async function loadDisjuntorConfig() {
+    const aiLimitInput = document.getElementById('aiQuotaLimit');
+    const funcLimitInput = document.getElementById('funcQuotaLimit');
+    const aiPauseSwitch = document.getElementById('aiQuotaPause');
+    const funcPauseSwitch = document.getElementById('funcQuotaPause');
+    
+    // Elementos para exibir o uso atual
+    const aiUsedSpan = document.getElementById('aiQuotaUsed');
+    const funcUsedSpan = document.getElementById('funcQuotaUsed');
+
+    if (!aiLimitInput) return; // Segurança caso a aba não esteja renderizada
+    
+    try {
+        const ref = doc(db, "admin_data", "system_limits");
+        const docSnap = await getDoc(ref);
+        
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            
+            // Carrega Configurações da IA
+            if (data.ai_quota) {
+                aiLimitInput.value = data.ai_quota.limit || 100;
+                aiPauseSwitch.checked = data.ai_quota.paused || false;
+                if (aiUsedSpan) aiUsedSpan.textContent = data.ai_quota.used || 0;
+            }
+            
+            // Carrega Configurações das Functions
+            if (data.functions_quota) {
+                funcLimitInput.value = data.functions_quota.limit || 1000;
+                funcPauseSwitch.checked = data.functions_quota.paused || false;
+                if (funcUsedSpan) funcUsedSpan.textContent = data.functions_quota.used || 0;
+            }
+        }
+    } catch (error) {
+        console.error("Erro ao carregar Configurações do Disjuntor:", error);
+    }
+}
+
+async function handleSaveDisjuntor() {
+    const aiLimit = parseInt(document.getElementById('aiQuotaLimit').value) || 100;
+    const funcLimit = parseInt(document.getElementById('funcQuotaLimit').value) || 1000;
+    const aiPaused = document.getElementById('aiQuotaPause').checked;
+    const funcPaused = document.getElementById('funcQuotaPause').checked;
+    
+    const btn = document.getElementById('btnSaveDisjuntor');
+    const originalText = btn.innerHTML;
+    
+    btn.innerHTML = '<span class="animate-pulse">Apertando as Válvulas...</span>';
+    btn.disabled = true;
+
+    try {
+        const ref = doc(db, "admin_data", "system_limits");
+        
+        // Usamos setDoc com merge: true para criar o documento caso ele ainda não exista
+        await setDoc(ref, {
+            ai_quota: {
+                limit: aiLimit,
+                paused: aiPaused
+            },
+            functions_quota: {
+                limit: funcLimit,
+                paused: funcPaused
+            }
+        }, { merge: true });
+
+        alert("🛑 Válvulas de Contingência de Custos atualizadas com sucesso!");
+    } catch (error) {
+        console.error("Erro ao salvar limites:", error);
+        alert("Erro ao salvar configurações do Disjuntor.");
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// --- DASHBOARD FINANCEIRO E SISTEMA --- // Mantém este comentário para não perder sua referência
 function applyFilters() {
     const searchInput = document.getElementById('adminSearchInput');
     const term = searchInput ? searchInput.value.toLowerCase() : '';
